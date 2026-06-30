@@ -28,6 +28,34 @@ import {
 import { fetchInventory, fetchWallet, ItemTypes } from './endpoints/inventory.js';
 import { fetchStorefront, fetchPrices } from './endpoints/store.js';
 import { fetchParty, fetchPartyById } from './endpoints/party.js';
+import {
+  fetchCurrentGamePlayer,
+  fetchCurrentGameMatch,
+  fetchCurrentGameLoadouts,
+  quitCurrentGame,
+} from './endpoints/currentgame.js';
+import {
+  fetchPregamePlayer,
+  fetchPregameMatch,
+  fetchPregameLoadouts,
+  selectCharacter,
+  lockCharacter,
+  quitPregame,
+} from './endpoints/pregame.js';
+import {
+  fetchMatchHistory,
+  fetchMatchDetails,
+} from './endpoints/match.js';
+import {
+  fetchPlayerMMR,
+  fetchCompetitiveUpdates,
+  fetchAccountXP,
+  fetchContent,
+} from './endpoints/player.js';
+import {
+  fetchContracts,
+  activateContract,
+} from './endpoints/contracts.js';
 
 import {
   getWeapons,
@@ -290,6 +318,156 @@ export class Valorant {
    */
   async getParty() {
     return fetchParty(this._ctx);
+  }
+
+  // ── Current Game ─────────────────────────────────────────────
+
+  /**
+   * Get current game info for the player.
+   * @returns {Promise<object>}
+   */
+  async getCurrentGamePlayer() {
+    return fetchCurrentGamePlayer(this._ctx);
+  }
+
+  /**
+   * Get current match details.
+   * @param {string} matchId
+   * @returns {Promise<object>}
+   */
+  async getCurrentGameMatch(matchId) {
+    return fetchCurrentGameMatch(matchId, this._ctx);
+  }
+
+  /**
+   * Get current game loadouts.
+   * @param {string} matchId
+   * @returns {Promise<object>}
+   */
+  async getCurrentGameLoadouts(matchId) {
+    return fetchCurrentGameLoadouts(matchId, this._ctx);
+  }
+
+  // ── Pre-Game ─────────────────────────────────────────────────
+
+  /**
+   * Get pre-game player info.
+   * @returns {Promise<object>}
+   */
+  async getPregamePlayer() {
+    return fetchPregamePlayer(this._ctx);
+  }
+
+  /**
+   * Get pre-game match info (map, agents, etc.).
+   * @param {string} matchId
+   * @returns {Promise<object>}
+   */
+  async getPregameMatch(matchId) {
+    return fetchPregameMatch(matchId, this._ctx);
+  }
+
+  /**
+   * Get pre-game loadouts.
+   * @param {string} matchId
+   * @returns {Promise<object>}
+   */
+  async getPregameLoadouts(matchId) {
+    return fetchPregameLoadouts(matchId, this._ctx);
+  }
+
+  /**
+   * Select an agent during pre-game.
+   * @param {string} matchId
+   * @param {string} agentId
+   * @returns {Promise<object>}
+   */
+  async selectAgent(matchId, agentId) {
+    return selectCharacter(matchId, agentId, this._ctx);
+  }
+
+  /**
+   * Lock in an agent during pre-game.
+   * @param {string} matchId
+   * @param {string} agentId
+   * @returns {Promise<object>}
+   */
+  async lockAgent(matchId, agentId) {
+    return lockCharacter(matchId, agentId, this._ctx);
+  }
+
+  // ── Match History ────────────────────────────────────────────
+
+  /**
+   * Get match history.
+   * @param {{ startIndex?: number, endIndex?: number, queue?: string }} [options]
+   * @returns {Promise<object>}
+   */
+  async getMatchHistory(options) {
+    return fetchMatchHistory(this._ctx, options);
+  }
+
+  /**
+   * Get match details.
+   * @param {string} matchId
+   * @returns {Promise<object>}
+   */
+  async getMatchDetails(matchId) {
+    return fetchMatchDetails(matchId, this._ctx);
+  }
+
+  // ── Player Info ──────────────────────────────────────────────
+
+  /**
+   * Get player MMR (rank, RR, etc.).
+   * @returns {Promise<object>}
+   */
+  async getPlayerMMR() {
+    return fetchPlayerMMR(this._ctx);
+  }
+
+  /**
+   * Get competitive updates.
+   * @param {{ startIndex?: number, endIndex?: number }} [options]
+   * @returns {Promise<object>}
+   */
+  async getCompetitiveUpdates(options) {
+    return fetchCompetitiveUpdates(this._ctx, options);
+  }
+
+  /**
+   * Get account XP and level.
+   * @returns {Promise<object>}
+   */
+  async getAccountXP() {
+    return fetchAccountXP(this._ctx);
+  }
+
+  /**
+   * Get game content (seasons, acts, events).
+   * @returns {Promise<object>}
+   */
+  async getContent() {
+    return fetchContent(this._ctx);
+  }
+
+  // ── Contracts ────────────────────────────────────────────────
+
+  /**
+   * Get all contracts (battle pass, agent contracts).
+   * @returns {Promise<object>}
+   */
+  async getContracts() {
+    return fetchContracts(this._ctx);
+  }
+
+  /**
+   * Activate a contract (e.g. start an agent contract).
+   * @param {string} contractId
+   * @returns {Promise<object>}
+   */
+  async activateContract(contractId) {
+    return activateContract(contractId, this._ctx);
   }
 
   // ── Metadata (valorant-api.com) ──────────────────────────────

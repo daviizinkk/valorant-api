@@ -168,6 +168,108 @@ const routes = {
     }
   },
 
+  // ── Current Game ────────────────────────────────────────
+  ['GET /api/current-game']: async (req, res) => {
+    try {
+      const v = await getClient();
+      const data = await v.getCurrentGamePlayer();
+      json(res, 200, data);
+    } catch (err) {
+      json(res, 200, { _unavailable: true, error: err.message });
+    }
+  },
+
+  ['GET /api/current-game-match']: async (req, res) => {
+    try {
+      const v = await getClient();
+      const player = await v.getCurrentGamePlayer();
+      if (!player.MatchID) return json(res, 200, { _unavailable: true });
+      const match = await v.getCurrentGameMatch(player.MatchID);
+      json(res, 200, match);
+    } catch (err) {
+      json(res, 200, { _unavailable: true, error: err.message });
+    }
+  },
+
+  // ── Match History ────────────────────────────────────────
+  ['GET /api/match-history']: async (req, res) => {
+    try {
+      const v = await getClient();
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const start = parseInt(url.searchParams.get('start')) || 0;
+      const end = parseInt(url.searchParams.get('end')) || 20;
+      const history = await v.getMatchHistory({ startIndex: start, endIndex: end });
+      json(res, 200, history);
+    } catch (err) {
+      json(res, 500, { error: err.message });
+    }
+  },
+
+  ['GET /api/match-details']: async (req, res) => {
+    try {
+      const v = await getClient();
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const matchId = url.searchParams.get('matchId');
+      if (!matchId) return json(res, 400, { error: 'matchId required' });
+      const details = await v.getMatchDetails(matchId);
+      json(res, 200, details);
+    } catch (err) {
+      json(res, 500, { error: err.message });
+    }
+  },
+
+  // ── Player Info ──────────────────────────────────────────
+  ['GET /api/mmr']: async (req, res) => {
+    try {
+      const v = await getClient();
+      const mmr = await v.getPlayerMMR();
+      json(res, 200, mmr);
+    } catch (err) {
+      json(res, 500, { error: err.message });
+    }
+  },
+
+  ['GET /api/account-xp']: async (req, res) => {
+    try {
+      const v = await getClient();
+      const xp = await v.getAccountXP();
+      json(res, 200, xp);
+    } catch (err) {
+      json(res, 500, { error: err.message });
+    }
+  },
+
+  ['GET /api/competitive-updates']: async (req, res) => {
+    try {
+      const v = await getClient();
+      const updates = await v.getCompetitiveUpdates();
+      json(res, 200, updates);
+    } catch (err) {
+      json(res, 500, { error: err.message });
+    }
+  },
+
+  ['GET /api/content']: async (req, res) => {
+    try {
+      const v = await getClient();
+      const content = await v.getContent();
+      json(res, 200, content);
+    } catch (err) {
+      json(res, 500, { error: err.message });
+    }
+  },
+
+  // ── Contracts ────────────────────────────────────────────
+  ['GET /api/contracts']: async (req, res) => {
+    try {
+      const v = await getClient();
+      const contracts = await v.getContracts();
+      json(res, 200, contracts);
+    } catch (err) {
+      json(res, 500, { error: err.message });
+    }
+  },
+
   // ── Metadata: weapons ───────────────────────────────────
   ['GET /api/weapons']: async (req, res) => {
     try {
