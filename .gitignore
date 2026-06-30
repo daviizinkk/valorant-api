@@ -8,6 +8,9 @@ Thumbs.db
 # Reasonix workspace metadata
 .reasonix/
 
+# Test files
+src/test-*.js
+
 # App runtime
 app/public/fallback.svg
 
