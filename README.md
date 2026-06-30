@@ -1,23 +1,15 @@
-<div align="center">
+<p align="center">
   <img src="https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white" alt="Node">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
-  <img src="https://img.shields.io/badge/dependencies-0-success" alt="Zero dependencies">
-  <img src="https://img.shields.io/badge/status-stable-brightgreen" alt="Status">
-  <br>
+  <img src="https://img.shields.io/badge/dependencies-0-success" alt="Zero deps">
   <img src="https://img.shields.io/github/stars/daviizinkk/valorant-api?style=social" alt="Stars">
-  <img src="https://img.shields.io/github/forks/daviizinkk/valorant-api?style=social" alt="Forks">
-</div>
+</p>
 
-<br>
-
-# 🎮 valorant-api
-
-> **A production-quality Node.js wrapper for the unofficial VALORANT API.**
-> Zero configuration. Automatic authentication. Clean API.
+<h1 align="center">valorant-api</h1>
+<p align="center"><em>Node.js wrapper for the unofficial VALORANT API — zero config, auto auth, dashboard included</em></p>
 
 ```js
 import { Valorant } from 'valorant-api';
-
 const valo = await Valorant.connect();
 const loadout = await valo.getLoadout();
 await valo.equipSkin('ef584a70-4f8d-ec84-3f7f-068f4b244d8f');
@@ -25,67 +17,67 @@ await valo.equipSkin('ef584a70-4f8d-ec84-3f7f-068f4b244d8f');
 
 ---
 
-## ✨ Features
+## Features
 
-| # | Feature | Details |
-|---|---------|---------|
-| 🔑 | **Zero configuration** | Auto-discovers Riot Client, authenticates, manages tokens — no setup needed |
-| 🔄 | **Auto-refresh** | Expired tokens refresh transparently — never get a 401 |
-| 🛡️ | **Smart retry** | Exponential backoff with jitter for 429, 5xx, and network errors |
-| 🎨 | **Smart cosmetics** | `equipSkin(uuid)` auto-resolves weapon, chroma, and level from metadata |
-| 📦 | **Metadata integration** | Wraps [valorant-api.com](https://valorant-api.com/) for weapons, skins, cards, titles |
-| 🔍 | **Search helpers** | `searchSkins("Reaver")`, `searchCards("VCT")`, `searchTitles("Radiant")` |
-| 📝 | **Descriptive errors** | Typed error classes (no more generic `Error`) |
-| ⚡ | **ESM only** | Modern `import`/`export` syntax for Node 18+ |
-| 📦 | **Zero runtime deps** | Only Node.js built-in modules |
+**Zero configuration** – discovers your Riot Client, authenticates, and manages tokens automatically. No API keys, no setup files, no manual token refreshes.
+
+**Automatic auth** – tokens are fetched from the local Riot Client and refreshed transparently when they expire. You never see a 401.
+
+**Smart retry** – transient failures (rate limits, server errors, network blips) are retried with exponential backoff and jitter. Invalid requests are not retried.
+
+**Metadata integration** – wraps [valorant-api.com](https://valorant-api.com/) for weapons, skins, player cards, titles, and search. Responses are cached in memory to avoid redundant network calls.
+
+**Smart cosmetics** – `equipSkin(uuid)` resolves the weapon, default chroma, and default level automatically using game metadata.
+
+**Typed errors** – descriptive error subclasses (e.g. `RiotClientNotRunningError`, `RateLimitError`) with machine-readable `.code` properties.
+
+**Zero runtime dependencies** – built entirely on Node.js built-in modules.
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm install valorant-api
 ```
 
-Requires **Node.js 18 or later** and the **Riot Client** running.
+Requires **Node.js 18+** and the **Riot Client** running on your machine.
 
 ---
 
-## 🚀 Quick Start
-
-Make sure Riot Client is running (you don't need VALORANT open for most features).
+## Quick start
 
 ```js
 import { Valorant } from 'valorant-api';
 
-// Connect automatically — discovers lockfile, authenticates, sets everything up
+// Connects automatically — discovers the lockfile, authenticates,
+// retrieves PUUID, region, shard, and client version.
 const valo = await Valorant.connect();
 
-// Fetch loadout
+// Read your current loadout
 const loadout = await valo.getLoadout();
-console.log(loadout.Identity.PlayerCardID);
 
 // Equip a skin (auto-resolves weapon, chroma, and level)
 await valo.equipSkin('ef584a70-4f8d-ec84-3f7f-068f4b244d8f');
 
-// Set player card
+// Set your player card
 await valo.setPlayerCard('5b1f1f1a-...');
 
-// Set player title
+// Set your player title
 await valo.setPlayerTitle('a1b2c3d4-...');
 
-// Check the store (requires VALORANT game launched)
+// Check your store (requires VALORANT game to be launched)
 const store = await valo.getStore();
 
-// Get wallet balances
+// See your wallet balances
 const wallet = await valo.getWallet();
 ```
 
 ---
 
-## 🖥️ Web Dashboard
+## Web dashboard
 
-The repo includes a built-in web dashboard!
+The repo includes a web-based dashboard for visual interaction.
 
 ```bash
 npm start
@@ -93,41 +85,40 @@ npm start
 node app/server.js
 ```
 
-Then open **http://localhost:3456** in your browser.
+Open **http://localhost:3456** in your browser.
 
-![Dashboard Preview](https://via.placeholder.com/800x450/0e1420/ff4655?text=VALORANT+Dashboard)
-
-| Tab | What it does |
-|-----|-------------|
-| **Overview** | Region, shard, wallet balances, account info |
-| **Loadout** | All 20 weapons with skin names & icons |
-| **Skins** | Search + click to equip any skin |
-| **Cards** | Search + click to set your player card |
-| **Titles** | Search + click to equip a title |
-| **Store** | Daily offers, featured bundles, Night Market |
-| **Inventory** | All owned items |
+| Section | What you can do |
+|---------|----------------|
+| Overview | See region, shard, wallet balances, and account info |
+| Loadout | Browse all 20 weapons with skin names and icons |
+| Skins | Search and equip any skin by name |
+| Cards | Search and set your player card |
+| Titles | Search and equip a title |
+| Store | View daily offers and bundles (requires game running) |
+| Inventory | Browse all owned entitlements |
 
 ---
 
-## 📚 API Reference
+## API reference
 
-### `Valorant.connect()`
+### Valorant.connect()
+
+Discovers the Riot Client lockfile, authenticates, and returns a ready client.
 
 ```js
 const valo = await Valorant.connect();
 ```
 
 What happens automatically:
-1. Locates the Riot Client lockfile
-2. Parses port & password
-3. Authenticates via local entitlements endpoint
+1. Locates the lockfile across Windows, macOS, or Linux paths
+2. Reads the port and password
+3. Authenticates via the local entitlements endpoint
 4. Retrieves PUUID, region, shard, and client version
 5. Seeds the token cache (auto-refresh on expiry)
-6. Returns a ready `Valorant` instance
 
-### `Valorant.init(options)`
+### Valorant.init(options)
 
-Create a client with explicit tokens (advanced / testing).
+Creates a client with explicit values (useful for testing or advanced setups).
 
 ```js
 const valo = Valorant.init({
@@ -146,153 +137,103 @@ const valo = Valorant.init({
 
 | Method | Description |
 |--------|-------------|
-| `valo.getLoadout()` | Fetch current loadout |
-| `valo.setLoadout(loadout)` | Save full loadout (fetch → modify → save pattern) |
-| `valo.setPlayerCard(uuid)` | Set player card (preserves all other fields) |
-| `valo.setPlayerTitle(uuid)` | Set player title |
-| `valo.setPreferredLevelBorder(uuid)` | Set level border |
-| `valo.equipSkin(uuid)` | Equip skin — auto-resolves weapon, chroma, level |
+| `getLoadout()` | Fetches the full player loadout (guns, sprays, identity) |
+| `setLoadout(loadout)` | Saves a modified loadout (fetch -> modify -> save) |
+| `setPlayerCard(uuid)` | Sets the player card, preserving all other fields |
+| `setPlayerTitle(uuid)` | Sets the player title |
+| `setPreferredLevelBorder(uuid)` | Sets the level border |
+| `equipSkin(uuid)` | Equips a skin; resolves weapon, chroma, and level automatically |
 
-### Store & Inventory
-
-| Method | Description |
-|--------|-------------|
-| `valo.getStore()` | Daily offers + featured bundles |
-| `valo.getPrices()` | Item prices |
-| `valo.getInventory(itemTypeId?)` | All owned items (optional type filter) |
-| `valo.getWallet()` | VP, Radianite, Kingdom Credits |
-
-### Metadata (valorant-api.com)
+### Store and inventory
 
 | Method | Description |
 |--------|-------------|
-| `valo.getWeapons()` | All weapons |
-| `valo.getWeapon(uuid)` | Single weapon |
-| `valo.getSkins()` | All weapon skins |
-| `valo.getSkin(uuid)` | Single skin |
-| `valo.getPlayerCards()` | All player cards |
-| `valo.getPlayerCard(uuid)` | Single card |
-| `valo.getPlayerTitles()` | All player titles |
-| `valo.searchSkins("Reaver")` | Search skins by name |
-| `valo.searchCards("VCT")` | Search cards by name |
-| `valo.searchTitles("Radiant")` | Search titles by name |
+| `getStore()` | Daily offers, featured bundles, and Night Market |
+| `getPrices()` | Current item prices |
+| `getInventory(itemTypeId?)` | All owned entitlements (optional type filter) |
+| `getWallet()` | VP, Radianite, Kingdom Credits balances |
 
-### Error Classes
+### Metadata helpers
 
-All errors extend `ValorantError` and have a machine-readable `code` property.
+These call [valorant-api.com](https://valorant-api.com/) and cache results in memory.
 
 ```js
-import { RiotClientNotRunningError, RateLimitError } from 'valorant-api';
+valo.getWeapons()
+valo.getWeapon(uuid)
+valo.getSkins()
+valo.getSkin(uuid)
+valo.getPlayerCards()
+valo.getPlayerCard(uuid)
+valo.getPlayerTitles()
+valo.searchSkins('Reaver')
+valo.searchCards('VCT')
+valo.searchTitles('Radiant')
+```
+
+### Error handling
+
+Every error extends `ValorantError` and exposes a `.code` property.
+
+| Class | `.code` | When it's thrown |
+|-------|---------|------------------|
+| `RiotClientNotRunningError` | `RIOT_CLIENT_NOT_RUNNING` | Lockfile not found |
+| `InvalidLockfileError` | `INVALID_LOCKFILE` | Lockfile is malformed |
+| `AuthenticationError` | `AUTHENTICATION_FAILED` | Auth request failed |
+| `TokenExpiredError` | `TOKEN_EXPIRED` | Token refresh failed |
+| `NetworkError` | `NETWORK_ERROR` | Connection or timeout |
+| `RateLimitError` | `RATE_LIMITED` | HTTP 429 response |
+| `APIError` | `API_ERROR` | HTTP 4xx or 5xx response |
+| `LoadoutError` | `LOADOUT_ERROR` | Loadout processing issue |
+| `MetadataError` | `METADATA_ERROR` | Metadata fetch failed |
+
+```js
+import { RiotClientNotRunningError } from 'valorant-api';
 
 try {
   const valo = await Valorant.connect();
 } catch (err) {
   if (err instanceof RiotClientNotRunningError) {
-    console.log('Start Riot Client first!');
+    console.log('Please start Riot Client first.');
   }
 }
 ```
 
-| Error | Code | When |
-|-------|------|------|
-| `RiotClientNotRunningError` | `RIOT_CLIENT_NOT_RUNNING` | Riot Client not found |
-| `InvalidLockfileError` | `INVALID_LOCKFILE` | Lockfile malformed |
-| `AuthenticationError` | `AUTHENTICATION_FAILED` | Auth failed |
-| `TokenExpiredError` | `TOKEN_EXPIRED` | Refresh failed |
-| `NetworkError` | `NETWORK_ERROR` | Connection failed |
-| `RateLimitError` | `RATE_LIMITED` | HTTP 429 |
-| `APIError` | `API_ERROR` | HTTP 4xx/5xx |
-| `LoadoutError` | `LOADOUT_ERROR` | Loadout processing |
-| `MetadataError` | `METADATA_ERROR` | Metadata fetch failed |
-
 ---
 
-## 🏗️ Project Structure
+## Project structure
 
 ```
 valorant-api/
-├── app/                    # Web dashboard
-│   ├── server.js           # HTTP server (zero deps)
-│   └── public/             # Frontend (HTML/CSS/JS)
+├── app/                  # Web dashboard
+│   ├── server.js         # HTTP server (zero dependencies)
+│   └── public/           # Frontend (HTML, CSS, JS)
 ├── src/
-│   ├── index.js            # Entry point
-│   ├── Valorant.js         # Main client class
-│   ├── errors.js           # Custom error classes
-│   ├── auth/               # Lockfile, tokens, PUUID, shard, version
-│   ├── endpoints/          # Loadout, inventory, store, party
-│   ├── metadata/           # valorant-api.com wrapper + cache
-│   └── util/               # Request layer + retry logic
+│   ├── index.js          # Package entry point
+│   ├── Valorant.js       # Main client class
+│   ├── errors.js         # Error subclasses
+│   ├── auth/             # Lockfile, tokens, PUUID, shard, version
+│   ├── endpoints/        # Loadout, inventory, store, party
+│   ├── metadata/         # valorant-api.com wrapper and cache
+│   └── util/             # Shared request layer and retry logic
 ├── package.json
 ├── LICENSE
-├── .gitignore
 └── README.md
 ```
 
 ---
 
-## 🛠️ How to Upload to GitHub
+## Platform support
 
-### 1. Create the repo on GitHub
-
-```bash
-# Go to https://github.com/new
-# Repo name: valorant-api
-# Description: Node.js wrapper for the unofficial VALORANT API
-# Keep it PUBLIC (for stars!)
-# Do NOT initialize with README (we already have one)
-```
-
-### 2. Push your code
-
-```bash
-# In the valorant-api directory:
-git init
-git add .
-git commit -m "Initial commit: VALORANT API wrapper + web dashboard"
-
-# Link to your GitHub repo
-git remote add origin https://github.com/daviizinkkinkk/valorant-api.git
-
-# Push
-git branch -M main
-git push -u origin main
-```
-
-### 3. After pushing
-
-- ✅ Your repo will be live at `https://github.com/daviizinkkinkk/valorant-api`
-- ⭐ Ask friends to star it
-- 📢 Share on Reddit (r/Valorant, r/VALORANT, r/node), Twitter, Discord servers
-- 🔄 Keep it updated with issues and PRs
-
-### 4. Star History & Growth Tips
-
-- **Add a star history badge**: `![Star History](https://img.shields.io/github/stars/daviizinkk/valorant-api?style=social)`
-- **Use star-history.com**: `https://star-history.com/#daviizinkk/valorant-api&Timeline`
-- Share it in VALORANT communities — this is useful for everyone who plays VALORANT
-- Make a short demo video and post on Twitter/X with #valorant #nodejs
-- Keep responding to issues quickly — repos with active maintainers grow faster
+| Platform | Status |
+|----------|--------|
+| Windows | Full support |
+| macOS | Supported |
+| Linux | Experimental (Wine / Lutris paths) |
 
 ---
 
-## 💻 Platform Support
+## License
 
-| Platform | Support |
-|----------|---------|
-| 🪟 Windows | ✅ Full support |
-| 🍎 macOS | ✅ Supported |
-| 🐧 Linux | ⚠️ Experimental (Wine/Lutris) |
+MIT &copy; [daviizinkk](https://github.com/daviizinkk)
 
----
-
-## 📄 License
-
-MIT © daviizinkk
-
----
-
-<div align="center">
-  <sub>Built with ❤️ for the VALORANT community</sub>
-  <br>
-  <sub>Not affiliated with Riot Games. VALORANT is a trademark of Riot Games, Inc.</sub>
-</div>
+*Not affiliated with Riot Games. VALORANT is a trademark of Riot Games, Inc.*
