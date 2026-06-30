@@ -236,4 +236,15 @@ valorant-api/
 
 MIT &copy; [daviizinkk](https://github.com/daviizinkk)
 
+```
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
+ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF
+THIS SOFTWARE.
+```
+
+In plain English: you can use, modify, and share this code freely. I provide no warranty and accept no liability for how it's used. This is standard for open-source projects.
+
 *Not affiliated with Riot Games. VALORANT is a trademark of Riot Games, Inc.*
