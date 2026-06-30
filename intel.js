@@ -2,69 +2,47 @@
  * @file VALORANT Live Match Intel — Console App
  *
  * Watches for an active game and prints everything:
- * agents, loadouts, map, round info, teams, and more.
+ * agents, loadouts, map, teams, and more.
  *
  * Usage: node intel.js
- * Keep VALORANT running and jump into a match.
  */
 
 import { Valorant } from './src/index.js';
 
 // ── Colors ───────────────────────────────────────────────────
 const R = '\x1b[31m'; const G = '\x1b[32m'; const Y = '\x1b[33m';
-const B = '\x1b[34m'; const M = '\x1b[35m'; const C = '\x1b[36m';
-const W = '\x1b[37m'; const D = '\x1b[2m'; const S = '\x1b[0m';
+const C = '\x1b[36m'; const D = '\x1b[2m'; const S = '\x1b[0m';
 
-// ── Agent UUID → Name mapping ───────────────────────────────
+// ── Agent UUID → Name ────────────────────────────────────────
 const AGENTS = {};
-
 async function loadAgents() {
   try {
     const res = await fetch('https://valorant-api.com/v1/agents?isPlayableCharacter=true');
-    const data = await res.json();
-    if (data.status === 200) {
-      for (const a of data.data) {
-        AGENTS[a.uuid] = a.displayName;
-      }
-    }
+    const { data } = await res.json();
+    if (data) for (const a of data) AGENTS[a.uuid] = a.displayName;
   } catch {}
 }
 
-// ── Helpers ──────────────────────────────────────────────────
-function agentName(uuid) {
-  return AGENTS[uuid] || uuid?.slice(0, 8) + '…' || 'Unknown';
-}
-
-function formatTime(sec) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
-function section(title) {
-  console.log(`\n${C}═══ ${title} ═══${S}`);
-}
-
-function kv(key, value) {
-  console.log(`  ${D}${key}:${S} ${value}`);
-}
-
-// ── Fetch metadata for weapon names ──────────────────────────
-const WEAPON_NAMES = {};
-async function loadWeaponNames() {
+// ── Weapon UUID → Name ──────────────────────────────────────
+const WEAPONS = {};
+async function loadWeapons() {
   try {
     const res = await fetch('https://valorant-api.com/v1/weapons');
-    const data = await res.json();
-    if (data.status === 200) {
-      for (const w of data.data) {
-        WEAPON_NAMES[w.uuid] = w.displayName;
-      }
-    }
+    const { data } = await res.json();
+    if (data) for (const w of data) WEAPONS[w.uuid] = w.displayName;
   } catch {}
 }
 
-function weaponName(uuid) {
-  return WEAPON_NAMES[uuid] || uuid?.slice(0, 8) + '…' || 'Unknown';
+function agentName(uuid) { return AGENTS[uuid] || uuid?.slice(0, 8); }
+function weaponName(uuid) { return WEAPONS[uuid] || uuid?.slice(0, 8); }
+
+function section(title) { console.log(`\n${C}═══ ${title} ═══${S}`); }
+function kv(k, v) { console.log(`  ${D}${k}:${S} ${v}`); }
+
+// ── Map ID to readable name ──────────────────────────────────
+function mapName(id) {
+  const map = id?.split('/').pop();
+  return map || '—';
 }
 
 // ── Main ─────────────────────────────────────────────────────
@@ -75,184 +53,154 @@ async function main() {
    ║   Waiting for an active game...    ║
    ╚════════════════════════════════════╝${S}\n`);
 
-  // Load agent & weapon names
-  await Promise.all([loadAgents(), loadWeaponNames()]);
-  kv('Agents loaded', Object.keys(AGENTS).length);
-  kv('Weapons loaded', Object.keys(WEAPON_NAMES).length);
+  await Promise.all([loadAgents(), loadWeapons()]);
+  kv('Metadata loaded', `${Object.keys(AGENTS).length} agents, ${Object.keys(WEAPONS).length} weapons`);
 
-  // Connect
   const valo = await Valorant.connect();
-  kv('Connected', `${valo.region.toUpperCase()} / ${valo.shard}`);
+  kv('Connected', `${valo.region.toUpperCase()}`);
 
-  // ── Poll for current game ──────────────────────────────
   let lastMatchId = null;
 
   while (true) {
     try {
-      const player = await valo.getCurrentGamePlayer();
-      console.log(player)
+      const cg = await valo.getCurrentGamePlayer();
 
-      if (player.MatchID && player.MatchID !== lastMatchId) {
-        lastMatchId = player.MatchID;
-        await renderMatch(valo, player);
-      } else if (!player.MatchID) {
-        // Not in a match — clear display
+      if (cg.MatchID && cg.MatchID !== lastMatchId) {
+        lastMatchId = cg.MatchID;
+        await renderMatch(valo, cg);
+      } else if (!cg.MatchID) {
         if (lastMatchId !== null) {
           console.clear();
           console.log(`${Y}⏸  Left match. Waiting for next game...${S}\n`);
           lastMatchId = null;
         }
       }
-    } catch (err) {
+
+      // Also check pre-game (agent select)
+      try {
+        const pg = await valo.getPregamePlayer();
+        if (pg.MatchID && pg.MatchID !== lastMatchId) {
+          lastMatchId = pg.MatchID;
+          await renderPregame(valo, pg);
+        }
+      } catch {}
+    } catch {
       if (lastMatchId !== null) {
         console.clear();
-        console.log(`${Y}⏸  Left match. Waiting...${S}\n`);
+        console.log(`${Y}⏸  Left match.${S}\n`);
         lastMatchId = null;
       }
     }
 
-    // Poll every 3 seconds
     await new Promise(r => setTimeout(r, 3000));
   }
 }
 
-// ── Render match info ────────────────────────────────────────
+// ── Render match ─────────────────────────────────────────────
 async function renderMatch(valo, player) {
   console.clear();
 
   console.log(`${R}
    ╔════════════════════════════════════╗
-   ║        🎮  MATCH FOUND!            ║
+   ║           🎮  IN GAME              ║
    ╚════════════════════════════════════╝${S}\n`);
 
-  kv('Match ID', player.MatchID);
-  kv('PUUID', player.Subject || player.puuid || '…');
-  kv('Team', player.TeamID || '—');
-  kv('Captain', player.IsCaptain ? 'Yes' : 'No');
-  console.log('');
-
-  // ── Fetch full match data ──────────────────────────────
   let match;
-  try {
-    match = await valo.getCurrentGameMatch(player.MatchID);
-  } catch (err) {
-    console.log(`${R}✗ Could not fetch match data: ${err.message}${S}`);
-    return;
-  }
+  try { match = await valo.getCurrentGameMatch(player.MatchID); }
+  catch (err) { console.log(`${R}✗ ${err.message}${S}`); return; }
 
-  // ── Map info ───────────────────────────────────────────
+  kv('Match ID', player.MatchID.slice(0, 12) + '…');
+
+  // ── Map ─────────────────────────────────────────────────
   section('Map');
-  kv('ID', match.MapID || '—');
-  kv('Mode', match.GameMode || '—');
-  kv('Queue', match.QueueID || '—');
-  kv('Provisioning Flow', match.ProvisioningFlow || '—');
+  kv('Map', mapName(match.MapID));
+  kv('Mode', match.ProvisioningFlow || match.ModeID || '—');
+  if (match.GamePhase) kv('Phase', match.GamePhase);
+  if (match.RoundTimer) kv('Time', formatTime(match.RoundTimer));
 
-  if (match.GamePhase) {
-    kv('Phase', match.GamePhase);
-  }
-  if (match.RoundTimer) {
-    kv('Round Timer', formatTime(match.RoundTimer));
-  }
-
-  // ─── Teams ─────────────────────────────────────────────
-  if (match.Teams && match.Teams.length > 0) {
-    section('Teams');
-    for (const team of match.Teams) {
-      const side = team.TeamID === 'Red' ? '🔴' : '🔵';
-      console.log(`  ${side} ${team.TeamID || 'Unknown'}`);
-      if (team.RoundsPlayed !== undefined) kv('  Rounds won', team.RoundsPlayed);
-      if (team.Score !== undefined) kv('  Score', team.Score);
-      if (team.NumPlayers !== undefined) kv('  Players', team.NumPlayers);
-    }
-  }
-
-  // ─── Players / Agents / Loadouts ──────────────────────
-  if (match.Players && match.Players.length > 0) {
+  // ── Players with agents & levels ─────────────────────────
+  if (match.Players?.length) {
     section(`Players (${match.Players.length})`);
-
     for (const p of match.Players) {
-      const name = p.Subject?.slice(0, 8) || 'Unknown';
-      const agent = agentName(p.CharacterID);
       const team = p.TeamID === 'Red' ? '🔴' : '🔵';
+      const agent = agentName(p.CharacterID);
       const level = p.AccountLevel !== undefined ? `Lv${p.AccountLevel}` : '';
+      const title = p.PlayerTitleID ? p.PlayerTitleID.slice(0, 6) + '…' : '';
 
-      console.log(`  ${team} ${G}${agent}${S} ${D}(${name})${S} ${level ? Y + level + S : ''}`);
-
-      // Loadout
-      if (p.Loadout?.Items) {
-        const weapons = Object.entries(p.Loadout.Items)
-          .filter(([slot]) => !slot.startsWith('Armor') && !slot.startsWith('Ability'))
-          .map(([slot, item]) => `${weaponName(item.ID)}${item.SocketID ? ' (' + item.SocketID + ')' : ''}`);
-
-        if (weapons.length > 0) {
-          console.log(`    ${D}Weapons:${S} ${weapons.join(', ')}`);
-        }
-      }
-
-      // Player title if available
-      if (p.PlayerTitleID) {
-        console.log(`    ${D}Title:${S} ${p.PlayerTitleID.slice(0, 12)}…`);
-      }
+      console.log(`  ${team} ${G}${agent}${S}  ${Y}${level}${S} ${D}${title}${S}`);
     }
   }
 
-  // ─── Fetch Loadouts (detailed per-player) ──────────────
-  section('Detailed Loadouts');
-  try {
-    const loadouts = await valo.getCurrentGameLoadouts(player.MatchID);
+  // ── Loadout (only bought weapons) ────────────────────────
+  if (match.Players?.length) {
+    section('Loadout (bought weapons)');
+    for (const p of match.Players) {
+      const agent = agentName(p.CharacterID);
+      const level = p.AccountLevel !== undefined ? `Lv${p.AccountLevel}` : '';
+      console.log(`\n  ${agent} ${D}${level}${S}`);
 
-    if (loadouts.Loadouts) {
-      for (const entry of loadouts.Loadouts) {
-        const playerId = entry.Subject || 'Unknown';
-        console.log(`\n  ${C}Player: ${playerId.slice(0, 12)}…${S}`);
+      const items = p.Loadout?.Items;
+      if (items) {
+        const slots = Object.entries(items).filter(
+          ([slot]) => !slot.startsWith('Ability') && !slot.startsWith('Passive')
+        );
 
-        if (entry.Loadout?.Items) {
-          for (const [slot, item] of Object.entries(entry.Loadout.Items)) {
-            const name = weaponName(item.ID);
-            console.log(`    ${slot}: ${G}${name}${S}`);
-            if (item.SkinID) {
-              console.log(`      ${D}Skin:${S} ${item.SkinID.slice(0, 12)}…`);
-            }
+        for (const [slot, item] of slots) {
+          const wName = weaponName(item.ID);
+          const skin = item.SkinID ? item.SkinID.slice(0, 6) + '…' : '';
+          // Armor shows as a separate item, show it compactly
+          if (slot === 'Armor') {
+            console.log(`    🛡️  ${wName}${skin ? ' (' + skin + ')' : ''}`);
+          } else {
+            console.log(`    🔫 ${wName}${skin ? ' (' + skin + ')' : ''}`);
           }
         }
       }
-    } else {
-      console.log(`  ${D}No loadout data available${S}`);
-    }
-  } catch (err) {
-    console.log(`  ${D}Loadouts: ${err.message}${S}`);
-  }
-
-  // ─── Abilities / Cooldowns ──────────────────────────────
-  if (match.CharacterData) {
-    section('Abilities');
-    // The structure varies — show what's available
-    for (const [cid, data] of Object.entries(match.CharacterData)) {
-      console.log(`  ${agentName(cid)}`);
-      if (data.UltimatePoints !== undefined) kv('  Ult points', data.UltimatePoints);
-      if (data.UltimateUsed !== undefined) kv('  Ults used', data.UltimateUsed);
     }
   }
 
-  // ─── Coaching ──────────────────────────────────────────
-  if (match.CoachTeam) {
-    section('Coaching');
-    for (const [cid, info] of Object.entries(match.CoachTeam)) {
-      console.log(`  Coach for ${cid}: ${JSON.stringify(info)}`);
+  console.log(`\n${D}🔄 Refreshing every 3s... (Ctrl+C to quit)${S}`);
+}
+
+// ── Render pre-game (agent select) ────────────────────────────
+async function renderPregame(valo, pg) {
+  console.clear();
+
+  console.log(`${R}
+   ╔════════════════════════════════════╗
+   ║       ⚔️  AGENT SELECT             ║
+   ╚════════════════════════════════════╝${S}\n`);
+
+  kv('Match ID', pg.MatchID.slice(0, 12) + '…');
+
+  let match;
+  try { match = await valo.getPregameMatch(pg.MatchID); }
+  catch { return; }
+
+  if (match.MapID) section('Map');
+  kv('Map', mapName(match.MapID));
+
+  if (match.AllyTeam?.Players?.length || match.EnemyTeam?.Players?.length) {
+    const total = (match.AllyTeam?.Players?.length || 0) + (match.EnemyTeam?.Players?.length || 0);
+    section(`Players (${total})`);
+
+    if (match.AllyTeam?.Players) {
+      console.log(`  ${C}Team${S}`);
+      for (const p of match.AllyTeam.Players) {
+        const agent = agentName(p.CharacterID);
+        const level = p.AccountLevel !== undefined ? `Lv${p.AccountLevel}` : '';
+        console.log(`    ${agent || 'TBD'}  ${Y}${level}${S} ${D}${p.Subject?.slice(0, 6)}${S}`);
+      }
     }
   }
 
-  // ─── Timestamps ────────────────────────────────────────
-  section('Timing');
-  if (match.GameStartTime) {
-    const start = new Date(match.GameStartTime * 1000);
-    kv('Started', start.toLocaleTimeString());
-  }
-  if (match.ServerTickRate) {
-    kv('Server Tick Rate', `${match.ServerTickRate} Hz`);
-  }
+  console.log(`\n${D}🔄 Refreshing every 3s... (Ctrl+C to quit)${S}`);
+}
 
-  console.log(`\n${D}🔄 Auto-refreshing every 3s... (Ctrl+C to quit)${S}`);
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 main().catch(err => {
