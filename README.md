@@ -4,8 +4,8 @@
   <img src="https://img.shields.io/badge/dependencies-0-success" alt="Zero dependencies">
   <img src="https://img.shields.io/badge/status-stable-brightgreen" alt="Status">
   <br>
-  <img src="https://img.shields.io/github/stars/daviiz/valorant-api?style=social" alt="Stars">
-  <img src="https://img.shields.io/github/forks/daviiz/valorant-api?style=social" alt="Forks">
+  <img src="https://img.shields.io/github/stars/daviizinkk/valorant-api?style=social" alt="Stars">
+  <img src="https://img.shields.io/github/forks/daviizinkk/valorant-api?style=social" alt="Forks">
 </div>
 
 <br>
@@ -251,7 +251,7 @@ git add .
 git commit -m "Initial commit: VALORANT API wrapper + web dashboard"
 
 # Link to your GitHub repo
-git remote add origin https://github.com/daviiz/valorant-api.git
+git remote add origin https://github.com/daviizinkkinkk/valorant-api.git
 
 # Push
 git branch -M main
@@ -260,15 +260,15 @@ git push -u origin main
 
 ### 3. After pushing
 
-- ✅ Your repo will be live at `https://github.com/daviiz/valorant-api`
+- ✅ Your repo will be live at `https://github.com/daviizinkkinkk/valorant-api`
 - ⭐ Ask friends to star it
 - 📢 Share on Reddit (r/Valorant, r/VALORANT, r/node), Twitter, Discord servers
 - 🔄 Keep it updated with issues and PRs
 
 ### 4. Star History & Growth Tips
 
-- **Add a star history badge**: `![Star History](https://img.shields.io/github/stars/daviiz/valorant-api?style=social)`
-- **Use star-history.com**: `https://star-history.com/#daviiz/valorant-api&Timeline`
+- **Add a star history badge**: `![Star History](https://img.shields.io/github/stars/daviizinkk/valorant-api?style=social)`
+- **Use star-history.com**: `https://star-history.com/#daviizinkk/valorant-api&Timeline`
 - Share it in VALORANT communities — this is useful for everyone who plays VALORANT
 - Make a short demo video and post on Twitter/X with #valorant #nodejs
 - Keep responding to issues quickly — repos with active maintainers grow faster
@@ -287,7 +287,7 @@ git push -u origin main
 
 ## 📄 License
 
-MIT © daviiz
+MIT © daviizinkk
 
 ---
 

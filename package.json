@@ -32,13 +32,13 @@
     "valorant-store"
   ],
   "license": "MIT",
-  "author": "",
+  "author": "daviizinkk",
   "repository": {
     "type": "git",
-    "url": "https://github.com/daviiz/valorant-api"
+    "url": "https://github.com/daviizinkk/valorant-api"
   },
   "bugs": {
-    "url": "https://github.com/daviiz/valorant-api/issues"
+    "url": "https://github.com/daviizinkk/valorant-api/issues"
   },
-  "homepage": "https://github.com/daviiz/valorant-api#readme"
+  "homepage": "https://github.com/daviizinkk/valorant-api#readme"
 }
