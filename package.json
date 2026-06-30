@@ -1,0 +1,44 @@
+{
+  "name": "valorant-api",
+  "version": "1.0.0",
+  "description": "A production-quality Node.js wrapper for the unofficial VALORANT API — zero configuration, automatic authentication",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./errors": "./src/errors.js"
+  },
+  "files": [
+    "src/"
+  ],
+  "scripts": {
+    "start": "node app/server.js",
+    "test": "node --experimental-vm-modules --test src/**/*.test.js",
+    "prepublishOnly": "node -e \"import('./src/index.js').then(m => console.log('Module loads OK'))\""
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "valorant",
+    "riot",
+    "api",
+    "wrapper",
+    "valo",
+    "riot-games",
+    "valorant-api",
+    "valorant-skins",
+    "valorant-loadout",
+    "valorant-store"
+  ],
+  "license": "MIT",
+  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/daviiz/valorant-api"
+  },
+  "bugs": {
+    "url": "https://github.com/daviiz/valorant-api/issues"
+  },
+  "homepage": "https://github.com/daviiz/valorant-api#readme"
+}

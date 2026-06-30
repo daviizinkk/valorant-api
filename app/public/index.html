@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VALORANT Dashboard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7v10l10 5 10-5V7l-10-5z"/></svg>
+      <span>VALORANT</span>
+    </div>
+    <div class="nav-items">
+      <button class="nav-btn active" data-tab="overview">    <svg>...</svg> Overview</button>
+      <button class="nav-btn" data-tab="loadout">     <svg>...</svg> Loadout</button>
+      <button class="nav-btn" data-tab="skins">       <svg>...</svg> Skins</button>
+      <button class="nav-btn" data-tab="cards">       <svg>...</svg> Cards</button>
+      <button class="nav-btn" data-tab="titles">      <svg>...</svg> Titles</button>
+      <button class="nav-btn" data-tab="store">       <svg>...</svg> Store</button>
+      <button class="nav-btn" data-tab="inventory">   <svg>...</svg> Inventory</button>
+    </div>
+    <div class="connection-status" id="statusBadge">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Connecting...</span>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main id="main">
+    <!-- Tab: Overview -->
+    <section id="tab-overview" class="tab visible">
+      <h1>Dashboard</h1>
+      <div class="stats-row" id="overviewStats"></div>
+      <div class="card-grid" id="overviewCards"></div>
+    </section>
+
+    <!-- Tab: Loadout -->
+    <section id="tab-loadout" class="tab">
+      <h1>Your Loadout</h1>
+      <div class="loadout-identity" id="loadoutIdentity"></div>
+      <h2>Weapons</h2>
+      <div id="loadoutWeapons" class="weapon-grid"></div>
+    </section>
+
+    <!-- Tab: Skins -->
+    <section id="tab-skins" class="tab">
+      <h1>Skins</h1>
+      <div class="search-bar">
+        <input type="text" id="skinsSearch" placeholder="Search skins... (e.g. Reaver, Prime, RGX)">
+        <button id="skinsSearchBtn">Search</button>
+      </div>
+      <div id="skinsResults" class="card-grid"></div>
+      <div class="equip-area" id="equipArea">
+        <p>Click a skin to equip it instantly.</p>
+      </div>
+    </section>
+
+    <!-- Tab: Cards -->
+    <section id="tab-cards" class="tab">
+      <h1>Player Cards</h1>
+      <div class="search-bar">
+        <input type="text" id="cardsSearch" placeholder="Search cards... (e.g. VCT, Schema, Dragon)">
+        <button id="cardsSearchBtn">Search</button>
+      </div>
+      <div id="cardsResults" class="card-grid"></div>
+      <div class="equip-area" id="cardEquipArea">
+        <p>Click a card to set it as your player card.</p>
+      </div>
+    </section>
+
+    <!-- Tab: Titles -->
+    <section id="tab-titles" class="tab">
+      <h1>Player Titles</h1>
+      <div class="search-bar">
+        <input type="text" id="titlesSearch" placeholder="Search titles... (e.g. Radiant, Duelist, Phoenix)">
+        <button id="titlesSearchBtn">Search</button>
+      </div>
+      <div id="titlesResults" class="list-view"></div>
+      <div class="equip-area" id="titleEquipArea">
+        <p>Click a title to equip it.</p>
+      </div>
+    </section>
+
+    <!-- Tab: Store -->
+    <section id="tab-store" class="tab">
+      <h1>Store</h1>
+      <div id="storeContent">
+        <p class="hint">Launch VALORANT and play a match to populate the store.</p>
+      </div>
+    </section>
+
+    <!-- Tab: Inventory -->
+    <section id="tab-inventory" class="tab">
+      <h1>Inventory</h1>
+      <div id="inventoryContent">
+        <p class="hint">Loading...</p>
+      </div>
+    </section>
+  </main>
+
+<script src="/app.js"></script>
+</body>
+</html>
