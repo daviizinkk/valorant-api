@@ -2,6 +2,10 @@
 
 ## 1.1.0 (2026-06-30)
 
+### Fixed
+
+- **Store endpoint migrated to V3** — changed from `GET /store/v2/storefront` to `POST /store/v3/storefront` to match the live game client's behavior, resolving the persistent 404 error. Store now works correctly when VALORANT is open.
+
 ### Added
 
 **20+ new endpoints** across 5 new modules:
@@ -14,11 +18,6 @@
 
 ### Changed
 
-- **Store endpoint** now returns a friendly `_unavailable` message when the VALORANT game client isn't running, instead of a raw HTTP 404 error
-- Internal: all new endpoints follow the same shared request layer (auto-auth, retry, error handling)
-
-### Fixed
-
 - Client version detection now correctly reads `productId` instead of the session key name
-- Header handling no longer sends `Content-Type: undefined` on GET requests
+- Content-Type header no longer sent as `undefined` on GET requests
 - Buffer concatenation uses `Buffer.concat` for reliability across all Node.js versions
