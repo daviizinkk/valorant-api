@@ -3,7 +3,9 @@
  */
 
 /**
- * Fetch the current storefront (daily offers, featured bundles, etc.).
+ * Fetch the current storefront (daily offers, featured bundles).
+ *
+ * Uses the live V3 endpoint (POST) as observed in ShooterGame log.
  *
  * @param {object}  ctx
  * @param {string}  ctx.puuid
@@ -14,7 +16,7 @@
  */
 export async function fetchStorefront(ctx) {
   const { api, puuid, shard, clientVersion, tokenStore } = ctx;
-  return api('GET', `/store/v2/storefront/${puuid}`, null, { shard, tokenStore, clientVersion });
+  return api('POST', `/store/v3/storefront/${puuid}`, {}, { shard, tokenStore, clientVersion });
 }
 
 /**
