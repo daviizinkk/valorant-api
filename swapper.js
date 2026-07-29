@@ -87,16 +87,40 @@ function startServer(domain, skinUuid) {
       fwdRes.on('data', c => chunks.push(c));
       fwdRes.on('end', () => {
         let body = Buffer.concat(chunks);
-        if (fwdRes.statusCode === 200 && req.url.includes('/playerloadout')) {
-          try {
-            const lo = JSON.parse(body.toString());
-            const old = lo.Guns?.[0]?.SkinID?.slice(0, 8) || '';
-            for (const g of lo.Guns || []) g.SkinID = skinUuid;
-            body = Buffer.from(JSON.stringify(lo));
-            fwdRes.headers['content-length'] = String(body.length);
-            console.log(`  ${G}✅ Patched!${S} ${old} → ${skinUuid.slice(0, 8)}…`);
-            patched++;
-          } catch {}
+        if (fwdRes.statusCode === 200) {
+          const isLoadout = req.url.includes('/playerloadout');
+          const isEntitlement = req.url.includes('/entitlements/');
+          
+          if (isLoadout) {
+            try {
+              const lo = JSON.parse(body.toString());
+              const old = lo.Guns?.[0]?.SkinID?.slice(0, 8) || '';
+              for (const g of lo.Guns || []) g.SkinID = skinUuid;
+              body = Buffer.from(JSON.stringify(lo));
+              fwdRes.headers['content-length'] = String(body.length);
+              console.log(`  ${G}✅ Patched loadout!${S} ${old} → ${skinUuid.slice(0, 8)}…`);
+              patched++;
+            } catch {}
+          }
+          
+          if (isEntitlement) {
+            try {
+              const ent = JSON.parse(body.toString());
+              const items = ent.Entitlements || [];
+              // Check if this skin is already in entitlements
+              const hasSkin = items.some(e => e.ItemID === skinUuid);
+              if (!hasSkin) {
+                ent.Entitlements.push({
+                  TypeID: 'e7c63390-eda7-46e0-bb7a-a6abdacd2433',
+                  ItemID: skinUuid,
+                  InstanceID: null
+                });
+                body = Buffer.from(JSON.stringify(ent));
+                fwdRes.headers['content-length'] = String(body.length);
+                console.log(`  ${G}✅ Patched entitlements!${S} Added ${skinUuid.slice(0, 8)}…`);
+              }
+            } catch {}
+          }
         }
         res.writeHead(fwdRes.statusCode, fwdRes.headers);
         res.end(body);
