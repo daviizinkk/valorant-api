@@ -22,7 +22,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:https';
 import { request as httpsRequest } from 'node:https';
-import { generateKeyPairSync, randomBytes } from 'node:crypto';
+import { generateKeyPairSync, randomBytes, createSign, createPrivateKey, createVerify } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
@@ -112,12 +112,12 @@ function createSelfSignedCert(commonName, days, isCA, signerKey) {
   const tbsSeq = Buffer.concat([Buffer.from('30', 'hex'), encodeLength(tbsFinal.length), tbsFinal]);
 
   // Sign the TBS with issuer key
-  const sign = require('crypto').createSign('RSA-SHA256');
+  const sign = createSign('RSA-SHA256');
   sign.update(tbsSeq);
   const sig = signerKey ? null : sign.sign(privateKey); // Self-sign
   // If signing with a different key (CA signing server cert)
   const finalSig = signerKey ? (() => {
-    const s = require('crypto').createSign('RSA-SHA256');
+    const s = createSign('RSA-SHA256');
     s.update(tbsSeq);
     return s.sign(signerKey);
   })() : sig;
@@ -192,7 +192,7 @@ function generateCerts(domain) {
   if (!existsSync(SRV_KEY)) {
     console.log(`  ${D}Creating server cert for ${domain}...${S}`);
     const caPrivRaw = readFileSync(join(DIR, 'ca-priv.pem'), 'utf8');
-    const caPriv = require('crypto').createPrivateKey(caPrivRaw);
+    const caPriv = createPrivateKey(caPrivRaw);
     const svr = createSelfSignedCert(domain, 365, false, caPriv);
     writeFileSync(SRV_KEY, svr.keyPem);
     writeFileSync(SRV_CERT, svr.certPem);
@@ -276,8 +276,8 @@ function startServer(domain, skinUuid) {
         res.end(body);
       });
     });
-    fwdRes.on('error', () => res.writeHead(502).end('Error'));
-    req.pipe(fwdReq);
+    fwd.on('error', () => res.writeHead(502).end('Error'));
+    req.pipe(fwd);
   });
 
   server.listen(PORT, () => {
@@ -306,7 +306,12 @@ async function main() {
     return;
   }
 
-  process.on('SIGINT', () => { cleanup(); process.exit(0); });
+  process.on('SIGINT', () => {
+    for (const d of ['pd.na.a.pvp.net', 'pd.br.a.pvp.net', 'pd.eu.a.pvp.net', 'pd.ap.a.pvp.net', 'pd.kr.a.pvp.net'])
+      removeHosts(d);
+    removeCA();
+    process.exit(0);
+  });
 
   const valo = await Valorant.connect();
   const domain = `pd.${valo.shard}.a.pvp.net`;
