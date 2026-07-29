@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VALORANT Skin Showcase</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: #0e1420;
+    color: #edf0f5;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #111b28, #0d1520);
+    border-bottom: 1px solid #253445;
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header h1 { font-size: 22px; font-weight: 800; color: #ff4655; }
+  .header .subtitle { font-size: 13px; color: #7a8da0; }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls select, .controls input {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #253445;
+    background: #16202c;
+    color: #edf0f5;
+    font-size: 13px;
+    outline: none;
+  }
+  .controls select:focus, .controls input:focus {
+    border-color: #0f9fff;
+  }
+  .controls button {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    background: #ff4655;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .controls button:hover { filter: brightness(1.15); }
+  .controls .count { font-size: 12px; color: #7a8da0; }
+
+  /* Main grid */
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+  .skin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+  }
+
+  .skin-card {
+    background: #16202c;
+    border: 1px solid #253445;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  .skin-card:hover {
+    border-color: #0f9fff;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+
+  .skin-card .preview {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #1a2838;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .skin-card .preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .skin-card .preview video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .skin-card .preview .play-btn {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.6);
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .skin-card .preview .play-btn:hover {
+    background: rgba(255,70,85,0.8);
+    border-color: #ff4655;
+  }
+
+  .skin-card .info {
+    padding: 10px 12px;
+  }
+  .skin-card .name {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .skin-card .weapon {
+    font-size: 11px;
+    color: #7a8da0;
+  }
+  .skin-card .tier {
+    font-size: 10px;
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+  .tier-deluxe { background: #1b7c1b; color: #fff; }
+  .tier-premium { background: #1a5ca0; color: #fff; }
+  .tier-exclusive { background: #6a1a9e; color: #fff; }
+  .tier-ultra { background: #b8860b; color: #fff; }
+  .tier-select { background: #555; color: #ccc; }
+
+  .skin-card .levels {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .skin-card .level-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #1a2838;
+    color: #7a8da0;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .skin-card .level-badge:hover {
+    border-color: #0f9fff;
+    color: #fff;
+  }
+  .skin-card .level-badge.has-video {
+    color: #0f9fff;
+  }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 60px;
+    color: #7a8da0;
+    font-size: 14px;
+  }
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #253445;
+    border-top-color: #ff4655;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error {
+    text-align: center;
+    padding: 40px;
+    color: #ff4655;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>VALORANT Skin Showcase</h1>
+      <div class="subtitle">Browse every skin with official Riot preview videos &bull; Safe &bull; No game required</div>
+    </div>
+    <div class="controls">
+      <select id="weaponFilter"><option value="">All Weapons</option></select>
+      <select id="tierFilter"><option value="">All Tiers</option></select>
+      <input type="text" id="searchInput" placeholder="Search skins..." style="width:160px">
+      <span class="count" id="skinCount">0 skins</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="loading" id="loadingState">
+      <div class="spinner"></div>
+      Loading skins from valorant-api.com...
+    </div>
+    <div class="skin-grid" id="skinGrid"></div>
+    <div class="error" id="errorState" style="display:none"></div>
+  </div>
+
+  <script>
+    const TIERS = {
+      '0cebb8be-46d7-c12a-d306-e9907bfc5a25': { name: 'Deluxe', cls: 'tier-deluxe' },
+      '12683d76-48d7-84a3-4e09-6985794f0445': { name: 'Premium', cls: 'tier-premium' },
+      '60bca009-4182-7998-dee7-b8a2558dc369': { name: 'Exclusive', cls: 'tier-exclusive' },
+      'e046854e-406c-37f4-6607-19a9ba8426fc': { name: 'Ultra', cls: 'tier-ultra' },
+    };
+
+    let allSkins = [];
+    let weapons = [];
+
+    async function load() {
+      try {
+        const [weaponRes, skinRes] = await Promise.all([
+          fetch('https://valorant-api.com/v1/weapons'),
+          fetch('https://valorant-api.com/v1/weapons/skins?language=all'),
+        ]);
+        const weaponData = await weaponRes.json();
+        const skinData = await skinRes.json();
+
+        if (weaponData.status !== 200 || skinData.status !== 200) throw new Error('API error');
+
+        weapons = weaponData.data;
+        allSkins = skinData.data;
+        populateFilters();
+        render();
+        document.getElementById('loadingState').style.display = 'none';
+      } catch (err) {
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('errorState').style.display = 'block';
+        document.getElementById('errorState').textContent = 'Failed to load: ' + err.message;
+      }
+    }
+
+    function weaponName(uuid) {
+      const w = weapons.find(w => w.skins?.some(s => s.uuid === uuid));
+      if (w) return w.displayName;
+      // Also check the skin's own data
+      return '';
+    }
+
+    function tierInfo(skin) {
+      return TIERS[skin.contentTierUuid] || { name: 'Select', cls: 'tier-select' };
+    }
+
+    function populateFilters() {
+      const weaponSel = document.getElementById('weaponFilter');
+      for (const w of weapons) {
+        const opt = document.createElement('option');
+        opt.value = w.uuid;
+        opt.textContent = w.displayName;
+        weaponSel.appendChild(opt);
+      }
+
+      const tierSel = document.getElementById('tierFilter');
+      for (const [uuid, info] of Object.entries(TIERS)) {
+        const opt = document.createElement('option');
+        opt.value = uuid;
+        opt.textContent = info.name;
+        tierSel.appendChild(opt);
+      }
+
+      weaponSel.addEventListener('change', render);
+      tierSel.addEventListener('change', render);
+      document.getElementById('searchInput').addEventListener('input', render);
+    }
+
+    function getFilteredSkins() {
+      const weaponFilter = document.getElementById('weaponFilter').value;
+      const tierFilter = document.getElementById('tierFilter').value;
+      const search = document.getElementById('searchInput').value.toLowerCase();
+
+      let skins = allSkins;
+
+      if (weaponFilter) {
+        const weapon = weapons.find(w => w.uuid === weaponFilter);
+        if (weapon) {
+          const skinUuids = new Set(weapon.skins.map(s => s.uuid));
+          skins = skins.filter(s => skinUuids.has(s.uuid));
+        }
+      }
+
+      if (tierFilter) skins = skins.filter(s => s.contentTierUuid === tierFilter);
+      if (search) skins = skins.filter(s => s.displayName.toLowerCase().includes(search));
+
+      return skins;
+    }
+
+    function render() {
+      const grid = document.getElementById('skinGrid');
+      const count = document.getElementById('skinCount');
+      const filtered = getFilteredSkins();
+
+      count.textContent = `${filtered.length} skins`;
+      grid.innerHTML = '';
+
+      for (const skin of filtered) {
+        const tier = tierInfo(skin);
+        const wName = weaponName(skin.uuid) || '—';
+        const hasVideo = skin.levels?.some(l => l.streamedVideo);
+
+        const card = document.createElement('div');
+        card.className = 'skin-card';
+
+        // Preview area
+        const preview = document.createElement('div');
+        preview.className = 'preview';
+
+        if (skin.displayIcon) {
+          const img = document.createElement('img');
+          img.src = skin.displayIcon;
+          img.alt = skin.displayName;
+          img.loading = 'lazy';
+          preview.appendChild(img);
+        }
+
+        // Play button for first video
+        const firstVideo = skin.levels?.find(l => l.streamedVideo);
+        if (firstVideo) {
+          const btn = document.createElement('div');
+          btn.className = 'play-btn';
+          btn.textContent = '▶';
+          btn.onclick = () => showVideo(preview, firstVideo.streamedVideo);
+          preview.appendChild(btn);
+        }
+
+        card.appendChild(preview);
+
+        // Info
+        const info = document.createElement('div');
+        info.className = 'info';
+        info.innerHTML = `
+          <div class="name">${skin.displayName}</div>
+          <div class="weapon">${wName}</div>
+          <span class="tier ${tier.cls}">${tier.name}</span>
+        `;
+
+        // Level badges
+        if (skin.levels?.length > 0) {
+          const levels = document.createElement('div');
+          levels.className = 'levels';
+          for (const level of skin.levels) {
+            const badge = document.createElement('span');
+            badge.className = `level-badge${level.streamedVideo ? ' has-video' : ''}`;
+            badge.textContent = level.streamedVideo ? `Lv${skin.levels.indexOf(level) + 1} ▶` : `Lv${skin.levels.indexOf(level) + 1}`;
+            if (level.streamedVideo) {
+              badge.onclick = (e) => {
+                e.stopPropagation();
+                showVideo(preview, level.streamedVideo);
+              };
+              badge.style.cursor = 'pointer';
+            }
+            levels.appendChild(badge);
+          }
+          card.appendChild(levels);
+        }
+
+        info.appendChild(card.querySelector('.levels') || document.createTextNode(''));
+        card.appendChild(info);
+        grid.appendChild(card);
+      }
+    }
+
+    function showVideo(container, videoUrl) {
+      // Remove existing video or play button
+      const existing = container.querySelector('video');
+      if (existing) { existing.remove(); }
+
+      const btn = container.querySelector('.play-btn');
+      if (btn) btn.style.display = 'none';
+
+      const img = container.querySelector('img');
+      if (img) img.style.display = 'none';
+
+      const video = document.createElement('video');
+      video.src = videoUrl;
+      video.autoplay = true;
+      video.controls = true;
+      video.loop = true;
+      video.style.width = '100%';
+      video.style.height = '100%';
+      video.style.objectFit = 'contain';
+
+      container.appendChild(video);
+      video.play().catch(() => {});
+    }
+
+    load();
+  </script>
+</body>
+</html>
