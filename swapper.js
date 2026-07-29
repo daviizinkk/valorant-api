@@ -1,259 +1,85 @@
 /**
- * @file VALORANT Skin Swapper — local HTTPS server with CA cert
+ * @file VALORANT Skin Swapper — local HTTPS using Windows cert store
  *
- * How it works:
- * 1. Generates a self-signed CA certificate (one-time, pure Node.js)
- * 2. Installs it in Windows trusted root store
- * 3. Adds hosts file: pd.{shard}.a.pvp.net → 127.0.0.1
- * 4. Starts local HTTPS server on port 443
- * 5. Forwards requests to real Riot server, patches loadout response
+ * Run AS ADMINISTRATOR. Uses PowerShell's built-in cert generation.
  *
- * Riot Support: "playing with skin changers in general game modes
- * will not trigger any penalties or bans."
- *
- * Run AS ADMINISTRATOR (required for port 443 + hosts file).
- *
- * Usage:
- *   node swapper.js <skinUuid>
- *   node swapper.js --reaver
- *   node swapper.js --cleanup
+ * Usage:  node swapper.js <skinUuid>
+ *         node swapper.js --reaver
+ *         node swapper.js --cleanup
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:https';
 import { request as httpsRequest } from 'node:https';
-import { generateKeyPairSync, randomBytes, createSign, createPrivateKey, createVerify } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { Valorant } from './src/index.js';
 
-const R = '\x1b[31m'; const G = '\x1b[32m'; const Y = '\x1b[33m';
-const C = '\x1b[36m'; const D = '\x1b[2m'; const S = '\x1b[0m';
-
+const R = '\x1b[31m', G = '\x1b[32m', Y = '\x1b[33m', C = '\x1b[36m', D = '\x1b[2m', S = '\x1b[0m';
 const DIR = join(homedir(), '.valorant-swapper');
-const CA_KEY = join(DIR, 'ca-key.pem');
-const CA_CERT = join(DIR, 'ca-cert.pem');
-const SRV_KEY = join(DIR, 'server-key.pem');
-const SRV_CERT = join(DIR, 'server-cert.pem');
+const PFX = join(DIR, 'server.pfx');
+const CA_CERT = join(DIR, 'ca-cert.cer');
 const HOSTS = `${process.env.SystemRoot || 'C:\\Windows'}\\System32\\drivers\\etc\\hosts`;
-const PORT = 443;
+const PORT = 443, PWD = 'swapper123';
 
-// ── Pure Node.js cert generator (no OpenSSL, no PowerShell) ──
 function ensureDir() { if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true }); }
 
-// Minimal PEM certificate generation using built-in crypto only
-function pemEncode(label, der) {
-  const b64 = der.toString('base64').match(/.{1,64}/g).join('\n');
-  return `-----BEGIN ${label}-----\n${b64}\n-----END ${label}-----\n`;
-}
-
-function createSelfSignedCert(commonName, days, isCA, signerKey) {
-  const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
-  const pubDer = publicKey.export({ type: 'spki', format: 'der' });
-  const keyPem = privateKey.export({ type: 'pkcs8', format: 'pem' });
-
-  // Build a minimal x509 v3 certificate
-  // Serial number (4 bytes random)
-  const serial = randomBytes(4);
-  
-  // Validity
-  const now = new Date();
-  const expire = new Date(now.getTime() + days * 86400000);
-  
-  const toDate = (d) => {
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
-  };
-
-  // Construct TBSCertificate manually (minimal ASN.1 DER)
-  const tbs = Buffer.concat([
-    // Version [0] EXPLICIT INTEGER 2 (v3)
-    Buffer.from('a003020102', 'hex'),
-    // Serial number
-    Buffer.concat([Buffer.from('02', 'hex'), Buffer.from([serial.length]), serial]),
-    // Signature algorithm (sha256WithRSAEncryption)
-    Buffer.from('300d06092a864886f70d01010b0500', 'hex'),
-    // Issuer
-    encodeName(commonName),
-    // Validity
-    Buffer.concat([
-      Buffer.from('30', 'hex'), encodeLength(30),
-      encodeTime(now), encodeTime(expire)
-    ]),
-    // Subject (same as issuer for self-signed)
-    encodeName(commonName),
-    // Subject public key info
-    Buffer.concat([
-      Buffer.from('30', 'hex'), encodeLength(pubDer.length + 2 + 13),
-      // AlgorithmIdentifier
-      Buffer.from('300d06092a864886f70d010101050003', 'hex'),
-      // Public key bit string
-      Buffer.concat([Buffer.from('03', 'hex'), Buffer.from([pubDer.length + 1]), Buffer.from([0]), pubDer])
-    ]),
-    // Extensions
-    isCA ? Buffer.from('a31d301b0603551d130101ff0408300601ff020100', 'hex') : Buffer.from('a31830160603551d11040f300d820b', 'hex')
-  ]);
-
-  // Add SAN for server certs
-  let tbsFinal = tbs;
-  if (!isCA && commonName.includes('.')) {
-    const sanData = Buffer.from('0b' + commonName.split('').map(c => c.charCodeAt(0) > 127 ? '?' : c.charCodeAt(0).toString(16).padStart(2, '0')).join(''), 'hex');
-    const sanExt = Buffer.concat([
-      Buffer.from('30', 'hex'),
-      Buffer.from([sanData.length + 4 + 2]),
-      Buffer.from('0603551d11040f300d820b', 'hex'),
-      sanData
-    ]);
-    tbsFinal = Buffer.concat([tbs, sanExt]);
-  }
-
-  // Make it fit in a SEQUENCE
-  const tbsSeq = Buffer.concat([Buffer.from('30', 'hex'), encodeLength(tbsFinal.length), tbsFinal]);
-
-  // Sign the TBS with issuer key
-  const sign = createSign('RSA-SHA256');
-  sign.update(tbsSeq);
-  const sig = signerKey ? null : sign.sign(privateKey); // Self-sign
-  // If signing with a different key (CA signing server cert)
-  const finalSig = signerKey ? (() => {
-    const s = createSign('RSA-SHA256');
-    s.update(tbsSeq);
-    return s.sign(signerKey);
-  })() : sig;
-
-  // Build the full certificate
-  const cert = Buffer.concat([
-    tbsSeq,
-    // Signature algorithm
-    Buffer.from('300d06092a864886f70d01010b0500', 'hex'),
-    // Signature bit string
-    Buffer.concat([
-      Buffer.from('03', 'hex'),
-      Buffer.from([finalSig.length + 1]),
-      Buffer.from([0]),
-      finalSig
-    ])
-  ]);
-
-  const certPem = pemEncode('CERTIFICATE', Buffer.concat([
-    Buffer.from('3082', 'hex'),
-    Buffer.from([((cert.length >> 8) & 0xff), (cert.length & 0xff)]),
-    cert
-  ]));
-
-  return { keyPem, certPem, privateKey };
-}
-
-function encodeName(cn) {
-  const cnBytes = Buffer.from(cn, 'utf8');
-  const cnSeq = Buffer.concat([
-    Buffer.from('30', 'hex'), encodeLength(cnBytes.length + 3),
-    Buffer.from('130c', 'hex'), Buffer.from([cnBytes.length]),
-    cnBytes
-  ]);
-  return Buffer.concat([
-    Buffer.from('30', 'hex'), encodeLength(cnSeq.length),
-    cnSeq
-  ]);
-}
-
-function encodeTime(d) {
-  const s = d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const b = Buffer.from(s, 'utf8');
-  return Buffer.concat([Buffer.from('180f', 'hex'), Buffer.from([b.length]), b]);
-}
-
-function encodeLength(len) {
-  if (len < 128) return Buffer.from([len]);
-  const bytes = [];
-  let tmp = len;
-  while (tmp > 0) { bytes.unshift(tmp & 0xff); tmp >>= 8; }
-  return Buffer.concat([Buffer.from([0x80 | bytes.length]), Buffer.from(bytes)]);
-}
-
-// ── Generate certs ──────────────────────────────────────────
-function generateCerts(domain) {
-  console.log(`  ${Y}Generating certificates (pure Node.js)...${S}`);
+function execPS(script, name) {
   ensureDir();
-
-  // Generate CA if needed
-  if (!existsSync(CA_KEY)) {
-    console.log(`  ${D}Creating CA...${S}`);
-    const ca = createSelfSignedCert('VALORANT Swapper CA', 3650, true, null);
-    writeFileSync(CA_KEY, ca.keyPem);
-    writeFileSync(CA_CERT, ca.certPem);
-    // Save CA private key for signing server cert
-    writeFileSync(join(DIR, 'ca-priv.pem'), ca.privateKey.export({ type: 'pkcs8', format: 'pem' }));
-    console.log(`  ${G}✅ CA created${S}`);
-  }
-
-  // Generate server cert signed by CA
-  if (!existsSync(SRV_KEY)) {
-    console.log(`  ${D}Creating server cert for ${domain}...${S}`);
-    const caPrivRaw = readFileSync(join(DIR, 'ca-priv.pem'), 'utf8');
-    const caPriv = createPrivateKey(caPrivRaw);
-    const svr = createSelfSignedCert(domain, 365, false, caPriv);
-    writeFileSync(SRV_KEY, svr.keyPem);
-    writeFileSync(SRV_CERT, svr.certPem);
-    console.log(`  ${G}✅ Server cert created${S}`);
-  }
+  const psFile = join(DIR, `${name || 's'}.ps1`);
+  writeFileSync(psFile, script, 'utf8');
+  return execSync(`powershell -NoProfile -ExecutionPolicy Bypass -File "${psFile}"`, { encoding: 'utf8', timeout: 30000 });
 }
 
-function installCA() {
-  if (!existsSync(CA_CERT)) return false;
-  console.log(`  ${Y}Installing CA certificate...${S}`);
-  try {
-    execSync(`certutil -addstore Root "${CA_CERT}"`, { stdio: 'pipe', timeout: 10000 });
-    console.log(`  ${G}✅ CA installed!${S}`);
-    return true;
-  } catch {
-    console.log(`  ${R}❌ Failed. Run as Administrator.${S}`);
-    console.log(`  ${D}Manual: certutil -addstore Root "${CA_CERT}"${S}`);
-    return false;
-  }
+function generateCerts(domain) {
+  ensureDir();
+  if (existsSync(PFX)) { console.log(`  ${D}Certs exist${S}`); return; }
+  console.log(`  ${Y}Creating certificates...${S}`);
+
+  execPS(`
+$ca = New-SelfSignedCertificate -DnsName "VALORANT Swapper CA" -CertStoreLocation Cert:\LocalMachine\My -KeyUsage CertSign -NotAfter (Get-Date).AddYears(10) -Type Custom -TextExtension @("2.5.29.19={text}ca=1")
+$root = Get-Item Cert:\LocalMachine\Root
+$root.Open("ReadWrite")
+$root.Add($ca)
+$root.Close()
+Export-Certificate -Cert $ca -FilePath "${CA_CERT}" -Type CERT | Out-Null
+`, 'ca');
+  console.log(`  ${G}✅ CA cert ready${S}`);
+
+  execPS(`
+$ca = Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.DnsNameList -contains "VALORANT Swapper CA" } | Select-Object -First 1
+$cert = New-SelfSignedCertificate -DnsName "${domain}","*.${domain.split('.').slice(1).join('.')}" -CertStoreLocation Cert:\LocalMachine\My -Signer $ca -NotAfter (Get-Date).AddYears(1)
+$pwd = ConvertTo-SecureString -String "${PWD}" -Force -AsPlainText
+Export-PfxCertificate -Cert $cert -FilePath "${PFX}" -Password $pwd | Out-Null
+`, 'server');
+  console.log(`  ${G}✅ Server cert ready${S}`);
 }
 
-function removeCA() {
-  try {
-    const out = execSync(`certutil -hashfile "${CA_CERT}" SHA1`, { encoding: 'utf8', timeout: 5000 });
-    const hash = out.split('\n').map(l => l.trim()).filter(l => /^[0-9a-f]{40}$/i.test(l))[0];
-    if (hash) { execSync(`certutil -delstore Root "${hash}"`, { stdio: 'pipe' }); console.log(`  ${G}✅ CA removed${S}`); }
-  } catch {}
+function removeCerts() {
+  execPS(`
+Get-ChildItem Cert:\LocalMachine\My, Cert:\LocalMachine\Root | Where-Object { $_.Subject -like "*Swapper*" } | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.DnsNameList -like "*pd.*" } | Remove-Item -Force -ErrorAction SilentlyContinue
+Write-Output "ok"
+`, 'clean');
 }
 
 function addHosts(domain) {
   try {
     let h = readFileSync(HOSTS, 'utf8');
-    if (h.includes(` ${domain}`)) {
-      h = h.split('\n').map(l => l.includes(` ${domain}`) ? `127.0.0.1 ${domain}` : l).join('\n');
-    } else {
-      h += `\n127.0.0.1 ${domain}\n`;
-    }
+    if (h.includes(` ${domain}`)) h = h.split('\n').map(l => l.includes(` ${domain}`) ? `127.0.0.1 ${domain}` : l).join('\n');
+    else h += `\n127.0.0.1 ${domain}\n`;
     writeFileSync(HOSTS, h);
     console.log(`  ${G}✅ Hosts: 127.0.0.1 ${domain}${S}`);
   } catch {}
 }
+function removeHosts(d) { try { let h = readFileSync(HOSTS, 'utf8'); writeFileSync(HOSTS, h.split('\n').filter(l => !l.includes(d)).join('\n')); } catch {} }
 
-function removeHosts(domain) {
-  try {
-    let h = readFileSync(HOSTS, 'utf8');
-    h = h.split('\n').filter(l => !l.trim().endsWith(' ' + domain) && !l.includes(` ${domain}`)).join('\n');
-    writeFileSync(HOSTS, h);
-    console.log(`  ${G}✅ Hosts entry removed${S}`);
-  } catch {}
-}
-
-// ── Server ──────────────────────────────────────────────────
 function startServer(domain, skinUuid) {
   let patched = 0;
-  const server = createServer({
-    key: readFileSync(SRV_KEY),
-    cert: readFileSync(SRV_CERT)
-  }, async (req, res) => {
+  const server = createServer({ pfx: readFileSync(PFX), passphrase: PWD }, async (req, res) => {
     const fwd = httpsRequest({
-      hostname: domain, port: 443, path: req.url,
-      method: req.method,
+      hostname: domain, port: 443, path: req.url, method: req.method,
       headers: { ...req.headers, host: domain, 'accept-encoding': 'identity' },
       rejectUnauthorized: false
     }, (fwdRes) => {
@@ -276,29 +102,22 @@ function startServer(domain, skinUuid) {
         res.end(body);
       });
     });
-    fwd.on('error', () => res.writeHead(502).end('Error'));
+    fwd.on('error', () => { try { res.writeHead(502).end('Error'); } catch {} });
     req.pipe(fwd);
   });
-
-  server.listen(PORT, () => {
-    console.log(`\n  ${G}✅ Server on https://${domain}:${PORT}${S}`);
-    console.log(`  ${D}Game connects → Local → Real (patched loadout)${S}\n`);
-  });
+  server.listen(PORT, () => { console.log(`\n  ${G}✅ Server on https://${domain}:${PORT}${S}\n`); });
 }
 
-// ── Main ────────────────────────────────────────────────────
 async function main() {
   const arg = process.argv[2];
-  if (!arg || arg === '--help') {
-    console.log(`\n${C}VALORANT Skin Swapper${S}\n  node swapper.js <uuid>\n  node swapper.js --reaver\n  node swapper.js --cleanup\n`);
-    return;
-  }
+  if (!arg || arg === '--help') { console.log(`\nSwapper\n  node swapper.js <uuid>\n  node swapper.js --reaver\n  node swapper.js --cleanup\n`); return; }
+
   if (arg === '--cleanup') {
-    for (const d of ['pd.na.a.pvp.net', 'pd.br.a.pvp.net', 'pd.eu.a.pvp.net', 'pd.ap.a.pvp.net', 'pd.kr.a.pvp.net'])
-      removeHosts(d);
-    removeCA();
-    return;
+    for (const d of ['pd.na.a.pvp.net', 'pd.br.a.pvp.net', 'pd.eu.a.pvp.net', 'pd.ap.a.pvp.net', 'pd.kr.a.pvp.net']) removeHosts(d);
+    removeCerts();
+    console.log(`  ${G}✅ Cleaned${S}`); return;
   }
+
   if (arg === '--reaver') {
     const { data } = await (await fetch('https://valorant-api.com/v1/weapons/skins')).json();
     for (const s of data.filter(s => s.displayName.toLowerCase().includes('reaver')))
@@ -307,21 +126,17 @@ async function main() {
   }
 
   process.on('SIGINT', () => {
-    for (const d of ['pd.na.a.pvp.net', 'pd.br.a.pvp.net', 'pd.eu.a.pvp.net', 'pd.ap.a.pvp.net', 'pd.kr.a.pvp.net'])
-      removeHosts(d);
-    removeCA();
+    for (const d of ['pd.na.a.pvp.net', 'pd.br.a.pvp.net', 'pd.eu.a.pvp.net', 'pd.ap.a.pvp.net', 'pd.kr.a.pvp.net']) removeHosts(d);
+    removeCerts();
     process.exit(0);
   });
 
   const valo = await Valorant.connect();
   const domain = `pd.${valo.shard}.a.pvp.net`;
   console.log(`\n${C}═══ Swapper ═══${S}\n  Domain: ${domain}\n  Skin: ${arg}\n`);
-
-  try { await valo.equipSkin(arg); console.log(`  ${G}✅ API OK${S}`); }
-  catch { console.log(`  ${Y}API rejected, using proxy${S}`); }
+  try { await valo.equipSkin(arg); console.log(`  ${G}✅ API OK${S}`); } catch { console.log(`  ${Y}API rejected${S}`); }
 
   generateCerts(domain);
-  installCA();
   addHosts(domain);
   startServer(domain, arg);
 }
