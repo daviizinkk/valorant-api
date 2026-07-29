@@ -1,193 +1,319 @@
 /**
- * @file Skin Swapper — Simple local proxy for showcasing skins in-game.
+ * @file VALORANT Skin Swapper — local HTTPS server with CA cert
  *
- * Uses the local Riot Client (lockfile) API to intercept loadout data
- * and patch skin UUIDs. No game memory access, no kernel interaction.
+ * How it works:
+ * 1. Generates a self-signed CA certificate (one-time)
+ * 2. Installs it in Windows trusted root store (one-time admin)
+ * 3. Adds hosts file entry: pd.{shard}.a.pvp.net → 127.0.0.1
+ * 4. Starts local HTTPS server on port 443 with a cert signed by our CA
+ * 5. Proxies requests to the real Riot server, patches loadout response
+ * 6. Game receives patched data — skin appears client-side
  *
- * Riot Support has stated: "simply playing with skin changers in
- * general game modes (like casual or social games) will not trigger
- * any penalties or bans."
+ * Riot Support: "playing with skin changers in general game modes
+ * (like casual or social games) will not trigger any penalties or bans."
+ *
+ * Run AS ADMINISTRATOR (required for port 443 + hosts file).
  *
  * Usage:
- *   node swapper.js <skinUuid>        # Patch + launch proxy
- *   node swapper.js --list-skins      # See available skins
+ *   node swapper.js <skinUuid>        # Start the swapper
+ *   node swapper.js --reaver           # Find Reaver skins
+ *   node swapper.js --cleanup          # Remove hosts entry + cert
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:http';
-import { connect as tlsConnect } from 'node:tls';
-import { connect as netConnect } from 'node:net';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { createServer } from 'node:https';
+import { request as httpsRequest } from 'node:https';
+import { randomBytes } from 'node:crypto';
+import { homedir, hostname } from 'node:os';
+import { join } from 'node:path';
+import { execSync } from 'node:child_process';
 import { Valorant } from './src/index.js';
 
 const R = '\x1b[31m'; const G = '\x1b[32m'; const Y = '\x1b[33m';
 const C = '\x1b[36m'; const D = '\x1b[2m'; const S = '\x1b[0m';
 
-const LOCKFILE = `${process.env.LOCALAPPDATA}\\Riot Games\\Riot Client\\Config\\lockfile`;
+const DATA_DIR = join(homedir(), '.valorant-swapper');
+const CA_KEY = join(DATA_DIR, 'ca-key.pem');
+const CA_CERT = join(DATA_DIR, 'ca-cert.pem');
+const SERVER_KEY = join(DATA_DIR, 'server-key.pem');
+const SERVER_CERT = join(DATA_DIR, 'server-cert.pem');
+const HOSTS_PATH = `${process.env.SystemRoot || 'C:\\Windows'}\\System32\\drivers\\etc\\hosts`;
+const SWAPPER_PORT = 443;
 
-function readLockfile() {
-  const [name, pid, port, pass] = readFileSync(LOCKFILE, 'utf8').trim().split(':');
-  return { name, pid: Number(pid), port: Number(port), pass };
+// ── Certificate generation ──────────────────────────────────
+function ensureDir() {
+  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// ── Simple patch proxy ──────────────────────────────────────
-function startProxy(targetPort, skinUuid) {
-  const proxyPort = targetPort - 1;
+function generateCA() {
+  console.log(`  ${Y}Generating CA certificate...${S}`);
+  // Generate CA key and cert using OpenSSL via Node.js
+  execSync(
+    `openssl req -x509 -new -nodes -days 3650 `
+    + `-newkey rsa:2048 -keyout "${CA_KEY}" -out "${CA_CERT}" `
+    + `-subj "/CN=VALORANT Swapper CA/O=LocalDev/C=US"`,
+    { stdio: 'pipe' }
+  );
+  console.log(`  ${G}✅ CA generated: ${CA_CERT}${S}`);
+}
+
+function generateServerCert(domain) {
+  console.log(`  ${Y}Generating server certificate for ${domain}...${S}`);
+  
+  // Create config file for SAN
+  const configPath = join(DATA_DIR, 'openssl.cnf');
+  writeFileSync(configPath, `[req]
+default_bits = 2048
+prompt = no
+default_md = sha256
+req_extensions = req_ext
+distinguished_name = dn
+
+[dn]
+CN = ${domain}
+O = LocalDev
+C = US
+
+[req_ext]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = ${domain}
+DNS.2 = *.${domain.split('.').slice(1).join('.')}
+`);
+  const csrPath = join(DATA_DIR, 'cert.csr');
+  
+  // Generate private key and CSR
+  execSync(
+    `openssl req -new -nodes `
+    + `-newkey rsa:2048 -keyout "${SERVER_KEY}" -out "${csrPath}" `
+    + `-config "${configPath}"`,
+    { stdio: 'pipe' }
+  );
+  
+  // Sign the CSR with our CA
+  execSync(
+    `openssl x509 -req -days 365 `
+    + `-in "${csrPath}" `
+    + `-CA "${CA_CERT}" -CAkey "${CA_KEY}" -CAcreateserial `
+    + `-out "${SERVER_CERT}" `
+    + `-extfile "${configPath}" -extensions req_ext`,
+    { stdio: 'pipe' }
+  );
+  
+  // Clean up CSR
+  try { execSync(`del "${csrPath}" 2>nul`, { stdio: 'pipe' }); } catch {}
+  
+  console.log(`  ${G}✅ Server cert generated${S}`);
+}
+
+function installCA() {
+  console.log(`  ${Y}Installing CA certificate to Windows trusted store...${S}`);
+  try {
+    execSync(`certutil -addstore Root "${CA_CERT}"`, { stdio: 'pipe' });
+    console.log(`  ${G}✅ CA installed!${S}`);
+  } catch (err) {
+    console.log(`  ${R}❌ Failed to install CA. Run as Administrator.${S}`);
+    console.log(`  ${D}Manual: certutil -addstore Root "${CA_CERT}"${S}`);
+    return false;
+  }
+  return true;
+}
+
+function removeCA() {
+  try {
+    const thumbprint = execSync(
+      `certutil -hashfile "${CA_CERT}" SHA1`,
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+    ).split('\n').filter(l => l.trim()).slice(1, 2)[0]?.trim();
+    if (thumbprint) {
+      execSync(`certutil -delstore Root "${thumbprint}"`, { stdio: 'pipe' });
+      console.log(`  ${G}✅ CA removed from store${S}`);
+    }
+  } catch {}
+}
+
+function addHostsEntry(domain, ip) {
+  let hosts = '';
+  try { hosts = readFileSync(HOSTS_PATH, 'utf8'); } catch { hosts = ''; }
+  
+  // Check if entry already exists
+  if (hosts.includes(` ${domain}`)) {
+    // Update existing entry
+    const lines = hosts.split('\n').map(l => {
+      if (l.includes(` ${domain}`)) return `${ip} ${domain}`;
+      return l;
+    });
+    writeFileSync(HOSTS_PATH, lines.join('\n'));
+  } else {
+    // Add new entry
+    writeFileSync(HOSTS_PATH, hosts + `\n${ip} ${domain}\n`);
+  }
+  console.log(`  ${G}✅ Hosts entry: ${ip} ${domain}${S}`);
+}
+
+function removeHostsEntry(domain) {
+  try {
+    let hosts = readFileSync(HOSTS_PATH, 'utf8');
+    hosts = hosts.split('\n').filter(l => !l.includes(` ${domain}`)).join('\n');
+    writeFileSync(HOSTS_PATH, hosts);
+    console.log(`  ${G}✅ Hosts entry removed for ${domain}${S}`);
+  } catch {}
+}
+
+function getCertPaths() {
+  return { key: readFileSync(SERVER_KEY), cert: readFileSync(SERVER_CERT) };
+}
+
+// ── Proxy + Patch Server ────────────────────────────────────
+function startServer(domain, skinUuid, shard) {
+  const { key, cert } = getCertPaths();
   let patchedCount = 0;
 
-  const server = createServer((req, res) => {
-    if (req.method !== 'CONNECT') {
-      res.writeHead(200);
-      return res.end(`Swapper active on :${proxyPort}\nPatches: ${patchedCount}\n`);
-    }
+  const server = createServer({ key, cert }, async (req, res) => {
+    const targetUrl = `https://${domain}${req.url}`;
+    
+    // Forward request to real Riot server
+    const options = {
+      hostname: domain,
+      port: 443,
+      path: req.url,
+      method: req.method,
+      headers: { ...req.headers, host: domain },
+      rejectUnauthorized: false,
+    };
 
-    const [host, portStr] = req.url.split(':');
-    const port = Number(portStr) || 443;
+    // Remove proxy-specific headers
+    delete options.headers['proxy-connection'];
 
-    // Only intercept Riot PD servers
-    const isRiot = /pd\.\w+\.a\.pvp\.net/i.test(host) ||
-                   /glz-\w+-\w+\.\w+\.a\.pvp\.net/i.test(host);
+    const isLoadout = req.url.includes('/playerloadout') || 
+                      req.url.includes('/personalization/v2/players/');
 
-    if (isRiot) {
-      handleRiotTunnel(req, res, host, port, skinUuid)
-        .then(n => { if (n > 0) patchedCount += n; })
-        .catch(() => {});
-    } else {
-      // Regular tunnel - just pass through
-      const target = netConnect(port, host, () => {
-        res.writeHead(200);
-        req.pipe(target);
-        target.pipe(req);
+    const proxyReq = httpsRequest(options, (proxyRes) => {
+      // Read the full response
+      const chunks = [];
+      proxyRes.on('data', c => chunks.push(c));
+      proxyRes.on('end', () => {
+        let body = Buffer.concat(chunks);
+        
+        if (isLoadout && proxyRes.statusCode === 200) {
+          try {
+            const loadout = JSON.parse(body.toString('utf8'));
+            const oldSkin = loadout.Guns?.[0]?.SkinID?.slice(0, 8) || '';
+            for (const gun of loadout.Guns || []) gun.SkinID = skinUuid;
+            const newBody = JSON.stringify(loadout);
+            body = Buffer.from(newBody);
+            // Update content-length in response headers
+            proxyRes.headers['content-length'] = String(body.length);
+            console.log(`  ${G}✅ Patched loadout!${S} ${oldSkin} → ${skinUuid.slice(0, 8)}…`);
+            patchedCount++;
+          } catch (e) {
+            console.log(`  ${R}Patch error:${S} ${e.message}`);
+          }
+        }
+
+        // Send response back to game
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        res.end(body);
       });
-      target.on('error', () => res.destroy());
-      req.on('error', () => target.end());
-    }
-  });
-
-  server.listen(proxyPort, () => {
-    console.log(`  ${G}✅ Local proxy:${S} 127.0.0.1:${proxyPort} → Riot servers\n`);
-    console.log(`  ${Y}Set your Windows proxy to:${S}`);
-    console.log(`    Address: 127.0.0.1  Port: ${proxyPort}\n`);
-    console.log(`  ${D}Then launch VALORANT and go to the Range.${S}`);
-    console.log(`  ${D}Press Ctrl+C to stop.\n`);
-  });
-}
-
-async function handleRiotTunnel(clientReq, clientRes, host, port, skinUuid) {
-  // Connect to real Riot server
-  const server = tlsConnect(port, host, { rejectUnauthorized: false }, async () => {
-    clientRes.writeHead(200, { 'Connection': 'keep-alive' });
-
-    // Read the client's HTTP request
-    let reqBuf = Buffer.alloc(0);
-    let responded = false;
-
-    clientReq.on('data', (chunk) => {
-      reqBuf = Buffer.concat([reqBuf, chunk]);
-      if (responded) return;
-
-      const reqStr = reqBuf.toString();
-      if (!reqStr.includes('\r\n\r\n')) return;
-      responded = true;
-
-      // Check if this is a loadout request
-      const isLoadout = reqStr.includes('/playerloadout') || reqStr.includes('/personalization/v2/players/');
-
-      if (isLoadout && reqStr.startsWith('GET')) {
-        // Forward and patch the response
-        server.write(reqBuf);
-        let respBuf = Buffer.alloc(0);
-        let contentLen = -1;
-        let headersEnd = -1;
-
-        server.on('data', (data) => {
-          respBuf = Buffer.concat([respBuf, data]);
-
-          if (headersEnd === -1) {
-            const r = respBuf.toString();
-            headersEnd = r.indexOf('\r\n\r\n');
-            if (headersEnd !== -1) {
-              const m = r.substring(0, headersEnd).match(/content-length:\s*(\d+)/i);
-              if (m) contentLen = parseInt(m[1]);
-            }
-          }
-
-          if (contentLen > 0 && headersEnd !== -1) {
-            const bodyStart = headersEnd + 4;
-            if (respBuf.length - bodyStart >= contentLen) {
-              const body = respBuf.slice(bodyStart, bodyStart + contentLen).toString();
-              try {
-                const loadout = JSON.parse(body);
-                const oldSkin = loadout.Guns?.[0]?.SkinID?.slice(0, 12) || '';
-                for (const gun of loadout.Guns || []) gun.SkinID = skinUuid;
-                const newBody = JSON.stringify(loadout);
-                const firstPart = respBuf.slice(0, headersEnd).toString()
-                  .replace(/content-length:\s*\d+/i, `Content-Length: ${Buffer.byteLength(newBody)}`);
-                const patched = Buffer.concat([
-                  Buffer.from(firstPart + '\r\n\r\n'),
-                  Buffer.from(newBody)
-                ]);
-                clientRes.write(patched);
-                clientRes.end();
-                console.log(`  ${G}✅ Patched loadout!${S} ${oldSkin} → ${skinUuid.slice(0, 12)}…`);
-                return;
-              } catch {}
-            }
-          }
-
-          // Passthrough if we can't patch
-          clientRes.write(respBuf);
-          clientRes.end();
-        });
-
-        server.on('error', () => { if (!clientRes.writableEnded) clientRes.end(); });
-      } else {
-        // Non-loadout: just tunnel
-        server.write(reqBuf);
-        server.pipe(clientRes);
-      }
     });
 
-    clientReq.on('error', () => server.end());
+    proxyReq.on('error', (err) => {
+      res.writeHead(502);
+      res.end(`Proxy error: ${err.message}`);
+    });
+
+    // Forward request body (for POST/PUT)
+    req.pipe(proxyReq);
   });
 
-  server.on('error', () => { if (!clientRes.writableEnded) clientRes.end(); });
+  server.listen(SWAPPER_PORT, () => {
+    console.log(`\n  ${G}✅ Swapper server running on https://${domain}:${SWAPPER_PORT}${S}`);
+    console.log(`  ${D}Game connects → Local server → Real Riot (patched)${S}\n`);
+    console.log(`  ${C}Patches: ${patchedCount}${S}`);
+    console.log(`  ${D}Press Ctrl+C to stop and clean up.${S}\n`);
+  });
+
+  return server;
 }
 
-// ── Main ─────────────────────────────────────────────────────
+// ── Setup everything ────────────────────────────────────────
+async function setup(skinUuid) {
+  ensureDir();
+  
+  // Connect to get shard info
+  const valo = await Valorant.connect();
+  const domain = `pd.${valo.shard}.a.pvp.net`;
+  
+  console.log(`\n${C}═══ Setting up VALORANT Skin Swapper ═══${S}\n`);
+  console.log(`  ${D}Shard:${S} ${valo.shard}  ${D}Domain:${S} ${domain}`);
+  console.log(`  ${D}Target:${S} ${skinUuid}\n`);
+
+  // Try API first
+  try {
+    await valo.equipSkin(skinUuid);
+    console.log(`  ${G}✅ API accepted the change!${S}`);
+  } catch {
+    console.log(`  ${Y}API rejected — will use HTTPS patching.${S}\n`);
+  }
+
+  // 1. Generate CA if needed
+  if (!existsSync(CA_KEY) || !existsSync(CA_CERT)) {
+    generateCA();
+  } else {
+    console.log(`  ${D}CA certificate exists${S}`);
+  }
+
+  // 2. Generate server cert if needed
+  if (!existsSync(SERVER_KEY) || !existsSync(SERVER_CERT)) {
+    generateServerCert(domain);
+  } else {
+    console.log(`  ${D}Server certificate exists${S}`);
+  }
+
+  // 3. Install CA
+  if (!installCA()) {
+    console.log(`\n  ${Y}Run this script AS ADMINISTRATOR for full auto-setup.${S}`);
+    console.log(`  ${D}Or manually: certutil -addstore Root "${CA_CERT}"${S}\n`);
+  }
+
+  // 4. Add hosts entry
+  addHostsEntry(domain, '127.0.0.1');
+
+  // 5. Start the server
+  startServer(domain, skinUuid, valo.shard);
+}
+
+// ── Cleanup ─────────────────────────────────────────────────
+function cleanup() {
+  console.log(`\n${Y}Cleaning up...${S}`);
+  const domain = `pd.na.a.pvp.net`; // Default, will be refined
+  removeHostsEntry(domain);
+  removeHostsEntry('pd.na.a.pvp.net');
+  removeHostsEntry('pd.br.a.pvp.net');
+  removeHostsEntry('pd.eu.a.pvp.net');
+  removeHostsEntry('pd.ap.a.pvp.net');
+  removeHostsEntry('pd.kr.a.pvp.net');
+  removeCA();
+  console.log(`  ${G}✅ Cleanup done${S}\n`);
+}
+
+// ── CLI ──────────────────────────────────────────────────────
 async function main() {
   const arg = process.argv[2];
+  
   if (!arg || arg === '--help') {
     console.log(`\n${C}VALORANT Skin Swapper${S}`);
-    console.log(`\n${D}Usage:${S}`);
-    console.log(`  node swapper.js <skinUuid>     ${D}# Patch + start proxy${S}`);
-    console.log(`  node swapper.js --list-skins   ${D}# Show available skins${S}`);
-    console.log(`  node swapper.js --reaver       ${D}# Quick: find Reaver skins${S}`);
+    console.log(`\n${D}Usage (run as ADMINISTRATOR):${S}`);
+    console.log(`  node swapper.js <skinUuid>     ${D}# Patch + start server${S}`);
+    console.log(`  node swapper.js --reaver       ${D}# Find Reaver skins${S}`);
+    console.log(`  node swapper.js --cleanup      ${D}# Remove hosts entries + cert${S}`);
     console.log(`\n${D}Riot Support: "playing with skin changers in`);
     console.log(`general game modes will not trigger any penalties"${S}\n`);
     return;
   }
 
-  if (arg === '--list-skins') {
-    const res = await fetch('https://valorant-api.com/v1/weapons/skins');
-    const { data } = await res.json();
-    const grouped = {};
-    for (const s of data) {
-      const prefix = s.displayName.split(/\s/)[0];
-      (grouped[prefix] = grouped[prefix] || []).push(s);
-    }
-    // Show the most interesting ones
-    for (const [name, skins] of Object.entries(grouped).sort()) {
-      if (skins.length > 1) {
-        console.log(`\n${C}${name}${S}`);
-        for (const s of skins.slice(0, 3)) {
-          console.log(`  ${Y}${s.uuid}${S}  ${s.displayName}`);
-        }
-        if (skins.length > 3) console.log(`  ${D}... and ${skins.length - 3} more${S}`);
-      }
-    }
-    console.log(`\n${D}Total: ${data.length} skins${S}\n`);
-    return;
-  }
+  if (arg === '--cleanup') { cleanup(); return; }
 
   if (arg === '--reaver') {
     const res = await fetch('https://valorant-api.com/v1/weapons/skins');
@@ -201,35 +327,13 @@ async function main() {
     return;
   }
 
-  // ── Normal mode: patch + proxy ─────────────────────────
-  const skinUuid = arg;
+  // Handle Ctrl+C for cleanup
+  process.on('SIGINT', () => {
+    cleanup();
+    process.exit(0);
+  });
 
-  console.log(`\n${C}VALORANT Skin Swapper${S}`);
-  console.log(`${D}Target: ${skinUuid}${S}\n`);
-
-  // Connect and verify
-  const valo = await Valorant.connect();
-  const lf = readLockfile();
-
-  console.log(`  ${D}Connected:${S} ${valo.region.toUpperCase()} / ${valo.shard}`);
-  console.log(`  ${D}Lockfile:${S} port ${lf.port}\n`);
-
-  // Try API first (may or may not work for unowned skins)
-  let apiWorked = false;
-  try {
-    await valo.equipSkin(skinUuid);
-    apiWorked = true;
-    console.log(`  ${G}✅ API accepted the change.${S}`);
-  } catch {
-    console.log(`  ${Y}API rejected — using proxy only.${S}`);
-  }
-
-  console.log(`\n  ${C}═══ Starting proxy — this is what makes it show in-game ═══${S}\n`);
-  console.log(`  ${Y}The game doesn't re-read the loadout in real-time.`);
-  console.log(`  The proxy intercepts the game's loadout requests and patches them.${S}\n`);
-
-  // Start the proxy (always needed — game caches loadout locally)
-  startProxy(lf.port, skinUuid);
+  await setup(arg);
 }
 
 main().catch(err => {
