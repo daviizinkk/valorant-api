@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VALORANT Skin Showcase</title>
+<title>VALORANT Skin & Map Showcase</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -13,395 +13,439 @@
     min-height: 100vh;
   }
 
-  /* Header */
   .header {
     background: linear-gradient(135deg, #111b28, #0d1520);
     border-bottom: 1px solid #253445;
-    padding: 20px 32px;
+    padding: 16px 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 8px;
   }
-  .header h1 { font-size: 22px; font-weight: 800; color: #ff4655; }
-  .header .subtitle { font-size: 13px; color: #7a8da0; }
+  .header h1 { font-size: 20px; font-weight: 800; color: #ff4655; }
+  .header .subtitle { font-size: 12px; color: #7a8da0; }
 
   .controls {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
     flex-wrap: wrap;
   }
   .controls select, .controls input {
-    padding: 8px 14px;
-    border-radius: 8px;
+    padding: 6px 12px;
+    border-radius: 6px;
     border: 1px solid #253445;
     background: #16202c;
     color: #edf0f5;
-    font-size: 13px;
+    font-size: 12px;
     outline: none;
   }
-  .controls select:focus, .controls input:focus {
-    border-color: #0f9fff;
-  }
   .controls button {
-    padding: 8px 18px;
-    border-radius: 8px;
+    padding: 6px 14px;
+    border-radius: 6px;
     border: none;
     background: #ff4655;
     color: #fff;
     font-weight: 700;
-    font-size: 13px;
+    font-size: 12px;
     cursor: pointer;
   }
   .controls button:hover { filter: brightness(1.15); }
-  .controls .count { font-size: 12px; color: #7a8da0; }
 
-  /* Main grid */
-  .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-
-  .skin-grid {
+  .container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 16px;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 14px;
+    grid-template-columns: 280px 1fr;
+    gap: 16px;
+    min-height: calc(100vh - 80px);
   }
 
-  .skin-card {
-    background: #16202c;
+  /* Sidebar */
+  .sidebar {
+    background: #111b28;
     border: 1px solid #253445;
-    border-radius: 12px;
-    overflow: hidden;
-    transition: all 0.2s;
+    border-radius: 10px;
+    padding: 14px;
+    overflow-y: auto;
+    max-height: calc(100vh - 100px);
   }
-  .skin-card:hover {
-    border-color: #0f9fff;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-  }
+  .sidebar h3 { font-size: 12px; color: #7a8da0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
 
-  .skin-card .preview {
-    width: 100%;
-    aspect-ratio: 16/9;
-    background: #1a2838;
+  .map-list-item {
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    margin-bottom: 3px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    position: relative;
+    gap: 8px;
+    border: 1.5px solid transparent;
+    transition: all 0.15s;
+  }
+  .map-list-item:hover { background: #16202c; border-color: #253445; }
+  .map-list-item.active { background: #ff465510; border-color: #ff4655; color: #ff4655; font-weight: 600; }
+  .map-list-item img { width: 32px; height: 32px; border-radius: 4px; object-fit: cover; }
+
+  .skin-list {
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+  }
+  .skin-list-item {
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
+    border: 1px solid transparent;
+    margin-bottom: 1px;
   }
-  .skin-card .preview img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+  .skin-list-item:hover { background: #16202c; border-color: #253445; }
+  .skin-list-item.active { background: #ff465510; border-color: #ff4655; }
+
+  /* Main viewer */
+  .viewer {
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    background: #0a1018;
+    border: 1px solid #253445;
   }
-  .skin-card .preview video {
+  .viewer .map-bg {
     width: 100%;
     height: 100%;
-    object-fit: contain;
-  }
-  .skin-card .preview .play-btn {
+    object-fit: cover;
     position: absolute;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.6);
-    background: rgba(0,0,0,0.5);
-    color: #fff;
-    font-size: 20px;
+    top: 0; left: 0;
+    opacity: 0.3;
+  }
+  .viewer .overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .skin-card .preview .play-btn:hover {
-    background: rgba(255,70,85,0.8);
-    border-color: #ff4655;
+    flex-direction: column;
   }
 
-  .skin-card .info {
-    padding: 10px 12px;
+  .viewer .skin-display {
+    width: 80%;
+    max-width: 600px;
+    text-align: center;
   }
-  .skin-card .name {
-    font-size: 13px;
-    font-weight: 700;
-    margin-bottom: 2px;
-  }
-  .skin-card .weapon {
-    font-size: 11px;
-    color: #7a8da0;
-  }
-  .skin-card .tier {
-    font-size: 10px;
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    margin-top: 4px;
-    font-weight: 600;
-  }
-  .tier-deluxe { background: #1b7c1b; color: #fff; }
-  .tier-premium { background: #1a5ca0; color: #fff; }
-  .tier-exclusive { background: #6a1a9e; color: #fff; }
-  .tier-ultra { background: #b8860b; color: #fff; }
-  .tier-select { background: #555; color: #ccc; }
+  .viewer .skin-display img { max-width: 100%; max-height: 50vh; object-fit: contain; }
+  .viewer .skin-display video { width: 100%; max-height: 60vh; border-radius: 8px; }
 
-  .skin-card .levels {
+  .viewer .controls-overlay {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    gap: 4px;
-    margin-top: 6px;
-    flex-wrap: wrap;
+    gap: 8px;
   }
-  .skin-card .level-badge {
-    font-size: 9px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: #1a2838;
-    color: #7a8da0;
-    cursor: pointer;
-    border: 1px solid transparent;
-  }
-  .skin-card .level-badge:hover {
-    border-color: #0f9fff;
+  .viewer .controls-overlay button {
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: none;
+    background: rgba(0,0,0,0.6);
     color: #fff;
+    font-size: 12px;
+    cursor: pointer;
   }
-  .skin-card .level-badge.has-video {
-    color: #0f9fff;
+  .viewer .controls-overlay button:hover { background: #ff4655; }
+
+  .viewer .skin-name {
+    margin-top: 12px;
+    font-size: 22px;
+    font-weight: 800;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  }
+  .viewer .skin-meta {
+    font-size: 13px;
+    color: #7a8da0;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
   }
 
   /* Loading */
-  .loading {
-    text-align: center;
-    padding: 60px;
-    color: #7a8da0;
-    font-size: 14px;
-  }
-  .spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid #253445;
-    border-top-color: #ff4655;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 0 auto 12px;
-  }
+  .loading { text-align: center; padding: 60px; color: #7a8da0; font-size: 14px; }
+  .spinner { width: 32px; height: 32px; border: 3px solid #253445; border-top-color: #ff4655; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .error {
+  /* Selection info */
+  .empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #7a8da0;
+    font-size: 14px;
     text-align: center;
     padding: 40px;
-    color: #ff4655;
+  }
+
+  .scrollable { scrollbar-width: thin; scrollbar-color: #253445 transparent; }
+  .scrollable::-webkit-scrollbar { width: 4px; }
+  .scrollable::-webkit-scrollbar-thumb { background: #253445; border-radius: 2px; }
+
+  @media (max-width: 768px) {
+    .container { grid-template-columns: 1fr; }
+    .sidebar { max-height: 200px; }
+    .skin-list { max-height: 150px; }
   }
 </style>
 </head>
 <body>
   <div class="header">
     <div>
-      <h1>VALORANT Skin Showcase</h1>
-      <div class="subtitle">Browse every skin with official Riot preview videos &bull; Safe &bull; No game required</div>
+      <h1>VALORANT x Map Showcase</h1>
+      <div class="subtitle">Every skin in its best map environment — official Riot preview videos + map art</div>
     </div>
     <div class="controls">
-      <select id="weaponFilter"><option value="">All Weapons</option></select>
       <select id="tierFilter"><option value="">All Tiers</option></select>
-      <input type="text" id="searchInput" placeholder="Search skins..." style="width:160px">
-      <span class="count" id="skinCount">0 skins</span>
+      <input type="text" id="searchInput" placeholder="Search a skin..." style="width:140px">
+      <span id="skinCount" style="font-size:12px;color:#7a8da0">0</span>
     </div>
   </div>
 
   <div class="container">
-    <div class="loading" id="loadingState">
-      <div class="spinner"></div>
-      Loading skins from valorant-api.com...
+    <div class="sidebar scrollable">
+      <h3>Maps</h3>
+      <div id="mapList"></div>
+      <h3 style="margin-top:14px">Skins</h3>
+      <input type="text" id="skinFilter" placeholder="Filter skins..." style="width:100%;padding:6px 10px;border-radius:4px;border:1px solid #253445;background:#16202c;color:#edf0f5;font-size:11px;margin-bottom:6px;outline:none">
+      <div id="skinList" class="skin-list scrollable"></div>
     </div>
-    <div class="skin-grid" id="skinGrid"></div>
-    <div class="error" id="errorState" style="display:none"></div>
+    <div class="viewer" id="viewer">
+      <div class="empty-state" id="emptyState">
+        <div>
+          <div style="font-size:40px;margin-bottom:12px">🎯</div>
+          <div>Select a map and a skin from the sidebar</div>
+          <div style="font-size:12px;color:#555;margin-top:6px">Skins are shown on official map art backgrounds</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
     const TIERS = {
-      '0cebb8be-46d7-c12a-d306-e9907bfc5a25': { name: 'Deluxe', cls: 'tier-deluxe' },
-      '12683d76-48d7-84a3-4e09-6985794f0445': { name: 'Premium', cls: 'tier-premium' },
-      '60bca009-4182-7998-dee7-b8a2558dc369': { name: 'Exclusive', cls: 'tier-exclusive' },
-      'e046854e-406c-37f4-6607-19a9ba8426fc': { name: 'Ultra', cls: 'tier-ultra' },
+      '0cebb8be-46d7-c12a-d306-e9907bfc5a25': { name: 'Deluxe' },
+      '12683d76-48d7-84a3-4e09-6985794f0445': { name: 'Premium' },
+      '60bca009-4182-7998-dee7-b8a2558dc369': { name: 'Exclusive' },
+      'e046854e-406c-37f4-6607-19a9ba8426fc': { name: 'Ultra' },
     };
 
     let allSkins = [];
+    let allMaps = [];
     let weapons = [];
+    let selectedMap = null;
+    let selectedSkin = null;
+    let currentVideo = null;
 
     async function load() {
       try {
-        const [weaponRes, skinRes] = await Promise.all([
+        const [mapRes, weaponRes, fullSkinRes] = await Promise.all([
+          fetch('https://valorant-api.com/v1/maps'),
           fetch('https://valorant-api.com/v1/weapons'),
           fetch('https://valorant-api.com/v1/weapons/skins?language=all'),
         ]);
+        const mapData = await mapRes.json();
         const weaponData = await weaponRes.json();
-        const skinData = await skinRes.json();
+        const skinData = await fullSkinRes.json();
 
-        if (weaponData.status !== 200 || skinData.status !== 200) throw new Error('API error');
+        if (mapData.status !== 200 || weaponData.status !== 200 || skinData.status !== 200)
+          throw new Error('API error');
 
-        weapons = weaponData.data;
-        allSkins = skinData.data;
+        // Filter to real maps only
+        allMaps = (mapData.data || []).filter(m =>
+          m.displayIcon && !m.displayName.includes('Range')
+        );
+
+        weapons = weaponData.data || [];
+        allSkins = skinData.data || [];
+
         populateFilters();
-        render();
-        document.getElementById('loadingState').style.display = 'none';
+        renderMapList();
+        populateSkinList();
+
+        // Select first map by default
+        if (allMaps.length) selectMap(allMaps[0].uuid);
+
+        document.getElementById('searchInput').addEventListener('input', populateSkinList);
+        document.getElementById('tierFilter').addEventListener('change', populateSkinList);
+        document.getElementById('skinFilter').addEventListener('input', populateSkinList);
       } catch (err) {
-        document.getElementById('loadingState').style.display = 'none';
-        document.getElementById('errorState').style.display = 'block';
-        document.getElementById('errorState').textContent = 'Failed to load: ' + err.message;
+        document.body.innerHTML = `<div class="loading"><div class="spinner"></div>Error: ${err.message}</div>`;
       }
     }
 
-    function weaponName(uuid) {
-      const w = weapons.find(w => w.skins?.some(s => s.uuid === uuid));
-      if (w) return w.displayName;
-      // Also check the skin's own data
+    function populateFilters() {
+      const sel = document.getElementById('tierFilter');
+      for (const [uuid, info] of Object.entries(TIERS)) {
+        const opt = document.createElement('option');
+        opt.value = uuid; opt.textContent = info.name; sel.appendChild(opt);
+      }
+    }
+
+    function weaponName(skinUuid) {
+      for (const w of weapons) {
+        if (w.skins?.some(s => s.uuid === skinUuid)) return w.displayName;
+      }
+      const skin = allSkins.find(s => s.uuid === skinUuid);
       return '';
     }
 
     function tierInfo(skin) {
-      return TIERS[skin.contentTierUuid] || { name: 'Select', cls: 'tier-select' };
-    }
-
-    function populateFilters() {
-      const weaponSel = document.getElementById('weaponFilter');
-      for (const w of weapons) {
-        const opt = document.createElement('option');
-        opt.value = w.uuid;
-        opt.textContent = w.displayName;
-        weaponSel.appendChild(opt);
-      }
-
-      const tierSel = document.getElementById('tierFilter');
-      for (const [uuid, info] of Object.entries(TIERS)) {
-        const opt = document.createElement('option');
-        opt.value = uuid;
-        opt.textContent = info.name;
-        tierSel.appendChild(opt);
-      }
-
-      weaponSel.addEventListener('change', render);
-      tierSel.addEventListener('change', render);
-      document.getElementById('searchInput').addEventListener('input', render);
+      return TIERS[skin.contentTierUuid] || { name: 'Select' };
     }
 
     function getFilteredSkins() {
-      const weaponFilter = document.getElementById('weaponFilter').value;
       const tierFilter = document.getElementById('tierFilter').value;
       const search = document.getElementById('searchInput').value.toLowerCase();
+      const skinFilter = document.getElementById('skinFilter').value.toLowerCase();
+      const q = search || skinFilter;
 
       let skins = allSkins;
-
-      if (weaponFilter) {
-        const weapon = weapons.find(w => w.uuid === weaponFilter);
-        if (weapon) {
-          const skinUuids = new Set(weapon.skins.map(s => s.uuid));
-          skins = skins.filter(s => skinUuids.has(s.uuid));
-        }
-      }
-
       if (tierFilter) skins = skins.filter(s => s.contentTierUuid === tierFilter);
-      if (search) skins = skins.filter(s => s.displayName.toLowerCase().includes(search));
-
+      if (q) skins = skins.filter(s => s.displayName.toLowerCase().includes(q));
       return skins;
     }
 
-    function render() {
-      const grid = document.getElementById('skinGrid');
-      const count = document.getElementById('skinCount');
-      const filtered = getFilteredSkins();
-
-      count.textContent = `${filtered.length} skins`;
-      grid.innerHTML = '';
-
-      for (const skin of filtered) {
-        const tier = tierInfo(skin);
-        const wName = weaponName(skin.uuid) || '—';
-        const hasVideo = skin.levels?.some(l => l.streamedVideo);
-
-        const card = document.createElement('div');
-        card.className = 'skin-card';
-
-        // Preview area
-        const preview = document.createElement('div');
-        preview.className = 'preview';
-
-        if (skin.displayIcon) {
-          const img = document.createElement('img');
-          img.src = skin.displayIcon;
-          img.alt = skin.displayName;
-          img.loading = 'lazy';
-          preview.appendChild(img);
-        }
-
-        // Play button for first video
-        const firstVideo = skin.levels?.find(l => l.streamedVideo);
-        if (firstVideo) {
-          const btn = document.createElement('div');
-          btn.className = 'play-btn';
-          btn.textContent = '▶';
-          btn.onclick = () => showVideo(preview, firstVideo.streamedVideo);
-          preview.appendChild(btn);
-        }
-
-        card.appendChild(preview);
-
-        // Info
-        const info = document.createElement('div');
-        info.className = 'info';
-        info.innerHTML = `
-          <div class="name">${skin.displayName}</div>
-          <div class="weapon">${wName}</div>
-          <span class="tier ${tier.cls}">${tier.name}</span>
-        `;
-
-        // Level badges
-        if (skin.levels?.length > 0) {
-          const levels = document.createElement('div');
-          levels.className = 'levels';
-          for (const level of skin.levels) {
-            const badge = document.createElement('span');
-            badge.className = `level-badge${level.streamedVideo ? ' has-video' : ''}`;
-            badge.textContent = level.streamedVideo ? `Lv${skin.levels.indexOf(level) + 1} ▶` : `Lv${skin.levels.indexOf(level) + 1}`;
-            if (level.streamedVideo) {
-              badge.onclick = (e) => {
-                e.stopPropagation();
-                showVideo(preview, level.streamedVideo);
-              };
-              badge.style.cursor = 'pointer';
-            }
-            levels.appendChild(badge);
-          }
-          card.appendChild(levels);
-        }
-
-        info.appendChild(card.querySelector('.levels') || document.createTextNode(''));
-        card.appendChild(info);
-        grid.appendChild(card);
-      }
+    function renderMapList() {
+      const el = document.getElementById('mapList');
+      el.innerHTML = allMaps.map(m => `
+        <div class="map-list-item ${selectedMap === m.uuid ? 'active' : ''}" data-uuid="${m.uuid}">
+          <img src="${m.listViewIcon || m.displayIcon || ''}" alt="${m.displayName}" loading="lazy"
+               onerror="this.style.display='none'">
+          ${m.displayName}
+        </div>
+      `).join('');
+      el.querySelectorAll('.map-list-item').forEach(item => {
+        item.addEventListener('click', () => selectMap(item.dataset.uuid));
+      });
     }
 
-    function showVideo(container, videoUrl) {
-      // Remove existing video or play button
-      const existing = container.querySelector('video');
-      if (existing) { existing.remove(); }
+    function selectMap(uuid) {
+      selectedMap = uuid;
+      document.querySelectorAll('.map-list-item').forEach(el =>
+        el.classList.toggle('active', el.dataset.uuid === uuid)
+      );
+      renderViewer();
+    }
 
-      const btn = container.querySelector('.play-btn');
-      if (btn) btn.style.display = 'none';
+    function populateSkinList() {
+      const el = document.getElementById('skinList');
+      const filtered = getFilteredSkins();
+      document.getElementById('skinCount').textContent = `${filtered.length} skins`;
 
-      const img = container.querySelector('img');
-      if (img) img.style.display = 'none';
+      el.innerHTML = filtered.map(s => `
+        <div class="skin-list-item ${selectedSkin === s.uuid ? 'active' : ''}" data-uuid="${s.uuid}">
+          ${s.displayName}
+        </div>
+      `).join('');
 
-      const video = document.createElement('video');
-      video.src = videoUrl;
-      video.autoplay = true;
-      video.controls = true;
-      video.loop = true;
-      video.style.width = '100%';
-      video.style.height = '100%';
-      video.style.objectFit = 'contain';
+      el.querySelectorAll('.skin-list-item').forEach(item => {
+        item.addEventListener('click', () => selectSkin(item.dataset.uuid));
+      });
+    }
 
-      container.appendChild(video);
-      video.play().catch(() => {});
+    function selectSkin(uuid) {
+      selectedSkin = uuid;
+      document.querySelectorAll('.skin-list-item').forEach(el =>
+        el.classList.toggle('active', el.dataset.uuid === uuid)
+      );
+      renderViewer();
+    }
+
+    function renderViewer() {
+      const viewer = document.getElementById('viewer');
+      const empty = document.getElementById('emptyState');
+      if (empty) empty.style.display = 'none';
+
+      const map = allMaps.find(m => m.uuid === selectedMap);
+      const skin = allSkins.find(s => s.uuid === selectedSkin);
+
+      if (!map || !skin) return;
+
+      // Get the skin's display icon + first video
+      const firstVideo = skin.levels?.find(l => l.streamedVideo);
+
+      let videoHtml = '';
+      if (firstVideo) {
+        videoHtml = `<video id="skinVideo" src="${firstVideo.streamedVideo}" autoplay loop muted
+          style="width:100%;max-height:60vh;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.5)"></video>`;
+      } else if (skin.displayIcon) {
+        videoHtml = `<img src="${skin.displayIcon}" style="max-width:80%;max-height:50vh;object-fit:contain;filter:drop-shadow(0 4px 20px rgba(0,0,0,0.6))">`;
+      }
+
+      // Level badges
+      let levelsHtml = '';
+      if (skin.levels?.length > 1) {
+        levelsHtml = skin.levels.map((l, i) => `
+          <button onclick="playLevel('${l.uuid}', '${(l.streamedVideo || '').replace(/'/g, "\\'")}')"
+            style="background:${l.streamedVideo ? 'rgba(15,159,255,0.3)' : 'rgba(0,0,0,0.4)'};border:1px solid ${l.streamedVideo ? '#0f9fff' : '#253445'}">
+            Lv${i+1}${l.streamedVideo ? ' ▶' : ''}
+          </button>
+        `).join('');
+      }
+
+      // Weapon name
+      const wName = weaponName(skin.uuid) || '';
+      const tier = tierInfo(skin);
+
+      viewer.innerHTML = `
+        <img class="map-bg" src="${map.splash || map.stylizedBackgroundImage || map.displayIcon}" alt="${map.displayName}"
+             onerror="this.style.display='none'">
+        <div class="overlay">
+          <div class="skin-display">
+            ${videoHtml}
+            <div class="skin-name">${skin.displayName}</div>
+            <div class="skin-meta">
+              ${wName ? `${wName} · ` : ''}${tier.name} · ${map.displayName}
+            </div>
+            ${levelsHtml ? `<div class="controls-overlay">${levelsHtml}</div>` : ''}
+          </div>
+        </div>
+      `;
+
+      currentVideo = document.getElementById('skinVideo');
+    }
+
+    function playLevel(levelUuid, videoUrl) {
+      if (!videoUrl) return;
+      const viewer = document.getElementById('viewer');
+      const video = document.getElementById('skinVideo');
+      if (video) {
+        video.src = videoUrl;
+        video.play().catch(() => {});
+      } else {
+        // Re-render with the new video
+        const map = allMaps.find(m => m.uuid === selectedMap);
+        const skin = allSkins.find(s => s.uuid === selectedSkin);
+        if (skin) {
+          const lvl = skin.levels?.find(l => l.uuid === levelUuid);
+          if (lvl?.streamedVideo) {
+            const existingOverlay = viewer.querySelector('.overlay');
+            const videoEl = document.createElement('video');
+            videoEl.src = lvl.streamedVideo;
+            videoEl.autoplay = true;
+            videoEl.loop = true;
+            videoEl.muted = true;
+            videoEl.style.cssText = 'width:100%;max-height:60vh;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.5)';
+            const display = existingOverlay?.querySelector('.skin-display');
+            if (display) {
+              const oldMedia = display.querySelector('video, img');
+              if (oldMedia) display.insertBefore(videoEl, oldMedia.nextSibling);
+              oldMedia?.remove();
+            }
+          }
+        }
+      }
     }
 
     load();
