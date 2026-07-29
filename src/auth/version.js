@@ -57,14 +57,20 @@ export async function fetchClientVersion(port, password) {
       const logPath = `${process.env.LOCALAPPDATA}\\VALORANT\\Saved\\Logs\\ShooterGame.log`;
       if (existsSync(logPath)) {
         const log = readFileSync(logPath, 'utf8');
-        // Pattern: version=13.02.00.5092570 or similar
-        const match = log.match(/version=(\d+\.\d+\.\d+\.\d+)/);
-        if (match) {
-          cachedVersion = match[1];
+        // Pattern from the log:
+        //   CI server version: release-13.02-shipping-7-5092570
+        //   Branch: release-13.02
+        // API expects format: 13.02.00.5092570
+        const branchMatch = log.match(/Branch:\s*release-([\d.]+)/);
+        // Extract build number from CI version line (last number after last dash)
+        const buildMatch = log.match(/CI server version:\s*.*?-(\d+)\s*$/m);
+
+        if (branchMatch && buildMatch) {
+          cachedVersion = `${branchMatch[1]}.00.${buildMatch[1]}`;
         } else {
-          // Try the Riot Client deploy version format
-          const deployMatch = log.match(/deploy-version[=:]\s*(\S+)/i);
-          if (deployMatch) cachedVersion = deployMatch[1];
+          // Try direct URL pattern: version=13.02.00.5092570
+          const urlMatch = log.match(/version=(\d+\.\d+\.\d+\.\d+)/);
+          if (urlMatch) cachedVersion = urlMatch[1];
         }
       }
     } catch {

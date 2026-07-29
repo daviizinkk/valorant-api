@@ -214,16 +214,21 @@ async function main() {
   console.log(`  ${D}Connected:${S} ${valo.region.toUpperCase()} / ${valo.shard}`);
   console.log(`  ${D}Lockfile:${S} port ${lf.port}\n`);
 
-  // Try API first (works for owned skins)
+  // Try API first (may or may not work for unowned skins)
+  let apiWorked = false;
   try {
     await valo.equipSkin(skinUuid);
-    console.log(`  ${G}✅ Equipped via API! (skin owned)${S}\n`);
-    return;
+    apiWorked = true;
+    console.log(`  ${G}✅ API accepted the change.${S}`);
   } catch {
-    console.log(`  ${Y}API rejected (skin not owned) — starting proxy...${S}\n`);
+    console.log(`  ${Y}API rejected — using proxy only.${S}`);
   }
 
-  // Start the proxy
+  console.log(`\n  ${C}═══ Starting proxy — this is what makes it show in-game ═══${S}\n`);
+  console.log(`  ${Y}The game doesn't re-read the loadout in real-time.`);
+  console.log(`  The proxy intercepts the game's loadout requests and patches them.${S}\n`);
+
+  // Start the proxy (always needed — game caches loadout locally)
   startProxy(lf.port, skinUuid);
 }
 
