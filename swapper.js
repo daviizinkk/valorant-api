@@ -38,8 +38,8 @@ function generateCerts(domain) {
   console.log(`  ${Y}Creating certificates...${S}`);
 
   execPS(`
-$ca = New-SelfSignedCertificate -DnsName "VALORANT Swapper CA" -CertStoreLocation Cert:\LocalMachine\My -KeyUsage CertSign -NotAfter (Get-Date).AddYears(10) -Type Custom -TextExtension @("2.5.29.19={text}ca=1")
-$root = Get-Item Cert:\LocalMachine\Root
+$ca = New-SelfSignedCertificate -DnsName "VALORANT Swapper CA" -CertStoreLocation Cert:\\LocalMachine\\My -KeyUsage CertSign -NotAfter (Get-Date).AddYears(10) -Type Custom -TextExtension @("2.5.29.19={text}ca=1")
+$root = Get-Item Cert:\\LocalMachine\\Root
 $root.Open("ReadWrite")
 $root.Add($ca)
 $root.Close()
@@ -48,8 +48,8 @@ Export-Certificate -Cert $ca -FilePath "${CA_CERT}" -Type CERT | Out-Null
   console.log(`  ${G}✅ CA cert ready${S}`);
 
   execPS(`
-$ca = Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.DnsNameList -contains "VALORANT Swapper CA" } | Select-Object -First 1
-$cert = New-SelfSignedCertificate -DnsName "${domain}","*.${domain.split('.').slice(1).join('.')}" -CertStoreLocation Cert:\LocalMachine\My -Signer $ca -NotAfter (Get-Date).AddYears(1)
+$ca = Get-ChildItem Cert:/LocalMachine/My | Where-Object { $_.DnsNameList -contains "VALORANT Swapper CA" } | Select-Object -First 1
+$cert = New-SelfSignedCertificate -DnsName "${domain}","*.${domain.split('.').slice(1).join('.')}" -CertStoreLocation Cert:/LocalMachine/My -Signer $ca -NotAfter (Get-Date).AddYears(1)
 $pwd = ConvertTo-SecureString -String "${PWD}" -Force -AsPlainText
 Export-PfxCertificate -Cert $cert -FilePath "${PFX}" -Password $pwd | Out-Null
 `, 'server');
@@ -58,8 +58,8 @@ Export-PfxCertificate -Cert $cert -FilePath "${PFX}" -Password $pwd | Out-Null
 
 function removeCerts() {
   execPS(`
-Get-ChildItem Cert:\LocalMachine\My, Cert:\LocalMachine\Root | Where-Object { $_.Subject -like "*Swapper*" } | Remove-Item -Force -ErrorAction SilentlyContinue
-Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.DnsNameList -like "*pd.*" } | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem Cert:/LocalMachine/My, Cert:/LocalMachine/Root | Where-Object { $_.Subject -like "*Swapper*" } | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem Cert:/LocalMachine/My | Where-Object { $_.DnsNameList -like "*pd.*" } | Remove-Item -Force -ErrorAction SilentlyContinue
 Write-Output "ok"
 `, 'clean');
 }
